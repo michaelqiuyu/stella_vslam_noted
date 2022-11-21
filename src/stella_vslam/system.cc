@@ -564,4 +564,21 @@ void system::resume_other_threads() const {
     }
 }
 
+
+// note: by xiongchao
+void system::set_track_state(tracker_state_t state) {
+    tracker_->set_track_state(state);
+}
+
+tracker_state_t system::get_track_state() {
+    return tracker_->get_track_state();
+}
+
+void system::save_pose_txt(const std::string &path) const {
+    pause_other_threads();
+    spdlog::debug("save_map_txt: {}", path);
+    map_database_io_->save_pose_txt(path, map_db_);
+    resume_other_threads();
+}
+
 } // namespace stella_vslam

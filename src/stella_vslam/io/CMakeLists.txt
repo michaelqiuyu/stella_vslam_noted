@@ -7,6 +7,7 @@ target_sources(${PROJECT_NAME}
                ${CMAKE_CURRENT_SOURCE_DIR}/map_database_io_msgpack.h
                ${CMAKE_CURRENT_SOURCE_DIR}/map_database_io_sqlite3.h
                ${CMAKE_CURRENT_SOURCE_DIR}/trajectory_io.cc
+               ${CMAKE_CURRENT_SOURCE_DIR}/map_database_io_base.cc
                ${CMAKE_CURRENT_SOURCE_DIR}/map_database_io_msgpack.cc
                ${CMAKE_CURRENT_SOURCE_DIR}/map_database_io_sqlite3.cc)
 

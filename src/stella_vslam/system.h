@@ -2,6 +2,7 @@
 #define STELLA_VSLAM_SYSTEM_H
 
 #include "stella_vslam/type.h"
+#include "stella_vslam/tracking_module.h"
 #include "stella_vslam/data/bow_vocabulary_fwd.h"
 
 #include <string>
@@ -273,6 +274,16 @@ private:
 
     //! Temporary variables for visualization
     std::vector<cv::KeyPoint> keypts_;
+
+
+// note: by xiongchao
+public:
+    void set_track_state(tracker_state_t state);
+
+    tracker_state_t get_track_state();
+
+    //! Save the keyFrame pose to txt file
+    void save_pose_txt(const std::string &path) const;
 };
 
 } // namespace stella_vslam

@@ -275,6 +275,13 @@ protected:
     bool relocalize_by_pose_is_requested_ = false;
     //! Requested pose to update
     pose_request relocalize_by_pose_request_;
+
+
+// note: by xiongchao
+public:
+    void set_track_state(const tracker_state_t &state);
+
+    tracker_state_t get_track_state();
 };
 
 } // namespace stella_vslam

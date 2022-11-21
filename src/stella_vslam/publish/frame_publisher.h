@@ -87,6 +87,12 @@ protected:
     bool mapping_is_enabled_;
 
     std::vector<std::shared_ptr<data::landmark>> curr_lms_;
+
+
+// by xiongchao
+public:
+    void DrawTextInfo(cv::Mat &im, const tracker_state_t &nState, const unsigned int num_tracked, cv::Mat &imText);
+
 };
 
 } // namespace publish

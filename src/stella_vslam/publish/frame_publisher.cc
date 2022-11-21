@@ -70,7 +70,11 @@ cv::Mat frame_publisher::draw_frame() {
 
     spdlog::trace("num_tracked: {}", num_tracked);
 
-    return img;
+    cv::Mat imWithInfo;
+    DrawTextInfo(img, tracking_state, num_tracked, imWithInfo);
+
+    // return img;
+    return imWithInfo;
 }
 
 unsigned int frame_publisher::draw_tracked_points(cv::Mat& img, const std::vector<cv::KeyPoint>& curr_keypts,
@@ -124,6 +128,34 @@ void frame_publisher::update(const std::vector<std::shared_ptr<data::landmark>>&
     mapping_is_enabled_ = mapping_is_enabled;
     tracking_state_ = tracking_state;
     curr_lms_ = curr_lms;
+}
+
+
+// by xiongchao
+void frame_publisher::DrawTextInfo(cv::Mat &im, const tracker_state_t &nState, const unsigned int num_tracked, cv::Mat &imText)
+{
+    std::stringstream s;
+    if(nState==tracker_state_t::Initializing)
+        s << " TRYING TO INITIALIZE ";
+    else if(nState==tracker_state_t::Tracking)
+    {
+        s << "SLAM MODE |  ";
+        int nKFs = map_db_->get_num_keyframes();
+        int nMPs = map_db_->get_num_landmarks();
+        s << "KFs: " << nKFs << ", MPs: " << nMPs << ", Matches: " << num_tracked;
+    }
+    else if(nState==tracker_state_t::Lost)
+    {
+        s << " TRACK LOST. TRYING TO RELOCALIZE ";
+    }
+
+    int baseline=0;
+    cv::Size textSize = cv::getTextSize(s.str(),cv::FONT_HERSHEY_PLAIN,1,1,&baseline);
+
+    imText = cv::Mat(im.rows+textSize.height+10,im.cols,im.type());
+    im.copyTo(imText.rowRange(0,im.rows).colRange(0,im.cols));
+    imText.rowRange(im.rows,imText.rows) = cv::Mat::zeros(textSize.height+10,im.cols,im.type());
+    cv::putText(imText,s.str(),cv::Point(5,imText.rows-5),cv::FONT_HERSHEY_PLAIN,1,cv::Scalar(255,255,255),1,8);
 }
 
 } // namespace publish

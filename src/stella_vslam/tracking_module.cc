@@ -623,4 +623,14 @@ bool tracking_module::pause_if_requested() {
     }
 }
 
+
+// note: by xiongchao
+void tracking_module::set_track_state(const tracker_state_t &state) {
+    tracking_state_ = state;
+}
+
+tracker_state_t tracking_module::get_track_state() {
+    return tracking_state_;
+}
+
 } // namespace stella_vslam

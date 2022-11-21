@@ -36,6 +36,14 @@ public:
                       data::bow_database* bow_db,
                       data::bow_vocabulary* bow_vocab)
         = 0;
+
+
+// note: by xiongchao
+public:
+    /**
+     * Save the KeyFrame pose → txt
+     */
+    void save_pose_txt(const std::string& path, data::map_database* map_db);
 };
 
 } // namespace io

@@ -58,6 +58,9 @@ list(APPEND EXECUTABLE_TARGETS run_tum_rgbd_slam)
 add_executable(run_loop_closure run_loop_closure.cc)
 list(APPEND EXECUTABLE_TARGETS run_loop_closure)
 
+add_executable(run_insta360 run_insta360.cc)
+list(APPEND EXECUTABLE_TARGETS run_insta360)
+
 foreach(EXECUTABLE_TARGET IN LISTS EXECUTABLE_TARGETS)
     # Set output directory for executables
     set_target_properties(${EXECUTABLE_TARGET} PROPERTIES
