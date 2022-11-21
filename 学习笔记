@@ -1,0 +1,93 @@
+1. 编译运行：
+	1.1 按照https://stella-cv.readthedocs.io/en/latest/installation.html#subsection-common-linux-macos安装相关以来
+	1.2 编译安装FBOW
+	1.3 编译安装tinycolormap
+	1.4 编译安装filesystem
+	1.5 编译的可执行文件在build目录下
+		1.5.1 mkdir build && cd build
+		1.5.2 cmake \
+			    -DUSE_PANGOLIN_VIEWER=ON \
+			    -DINSTALL_PANGOLIN_VIEWER=ON \
+			    -DUSE_SOCKET_PUBLISHER=OFF \
+			    -DBUILD_TESTS=ON \
+			    -DBUILD_EXAMPLES=ON \
+			    ..
+	1.6 词袋下载地址：
+		1.6.1 https://github.com/stella-cv/FBoW_orb_vocab
+		1.6.2 curl -sL "https://github.com/stella-cv/FBoW_orb_vocab/raw/main/orb_vocab.fbow" -o orb_vocab.fbow
+	1.7 https://stella-cv.readthedocs.io/en/latest/simple_tutorial.html：在此目录下下载数据并运行
+	1.8 example:
+		1.8.1 create_map
+			1. 1280 * 640
+				1.1 ./run_video_slam \
+			    -v /home/xiongchao/workspace/leador/project/vslam/code/stella_vslam_noted/3rd/FBoW/orb_vocab.fbow \
+			    -c /home/xiongchao/workspace/leador/project/vslam/dataset/leador/beijing_leador/1280_640/instal360.yaml \
+			    -m /home/xiongchao/workspace/leador/project/vslam/dataset/leador/beijing_leador/1280_640/parking_3min.mp4 \
+			    --map-db-out /home/xiongchao/workspace/leador/project/vslam/dataset/leador/beijing_leador/1280_640/parking_3min.msg
+			2 1920 * 960
+				2.1 ./run_video_slam \
+			    -v /home/xiongchao/workspace/leador/project/vslam/code/stella_vslam_noted/3rd/FBoW/orb_vocab.fbow \
+			    -c /home/xiongchao/workspace/leador/project/vslam/dataset/leador/beijing_leador/1920_960/instal360.yaml \
+			    -m /home/xiongchao/workspace/leador/project/vslam/dataset/leador/beijing_leador/1920_960/beijing_leador_company.mp4 \
+			    --map-db-out /home/xiongchao/workspace/leador/project/vslam/dataset/leador/beijing_leador/1920_960/beijing_leador_company.msg
+
+
+
+		
+		1.8.2 run localization
+			1. 1920 * 960
+				1.1 定位模式
+					./run_insta360 \
+						--disable-mapping \
+						-v /home/xiongchao/workspace/leador/project/vslam/code/stella_vslam_noted/3rd/FBoW/orb_vocab.fbow \
+						-m /home/xiongchao/workspace/leador/project/vslam/dataset/leador/beijing_leador/1920_960/beijing_leador_company.mp4 \
+						-c /home/xiongchao/workspace/leador/project/vslam/dataset/leador/beijing_leador/1920_960/instal360.yaml \
+						--map-db-in /home/xiongchao/workspace/leador/project/vslam/dataset/leador/beijing_leador/1920_960/beijing_leador_company.msg
+				1.2 逐帧重定位
+					./run_insta360 \
+						--disable-mapping \
+						-v /home/xiongchao/workspace/leador/project/vslam/code/stella_vslam_noted/3rd/FBoW/orb_vocab.fbow \
+						-m /home/xiongchao/workspace/leador/project/vslam/dataset/leador/beijing_leador/1920_960/beijing_leador_company.mp4 \
+						-c /home/xiongchao/workspace/leador/project/vslam/dataset/leador/beijing_leador/1920_960/instal360.yaml \
+						--frame-skip 50 \
+						--is-reloc \
+						--map-db-in /home/xiongchao/workspace/leador/project/vslam/dataset/leador/beijing_leador/1920_960/beijing_leador_company.msg
+
+2. 
+
+
+
+
+
+
+
+
+
+refine_pose_by_local_map函数中if (num_valid_obs > num_tracked_lms * ratio)判断有误
+
+
+
+
+
+论文阅读：
+	1. 摘要
+
+	2. 介绍
+
+	3. 详细原理
+
+	4. 测试
+
+
+
+
+
+
+
+
+从debug的结果看出，这里提出的特征点其实是非常多的，对于1920 * 1080的图片来说，正常情况下提取了接近4000个特征点
+但是从最后形成的地图点看，其数量又相比于ORB-SLAM3来说比较少，哪里的筛选条件比较严格，使得其效果变好
+
+
+
+
