@@ -201,7 +201,7 @@ int main(int argc, char* argv[]) {
 //    }
 
     // setup logger
-    const std::string log_level = "debug";
+    const std::string log_level = "trace";
     spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] %^[%L] %v%$");
     spdlog::set_level(spdlog::level::from_str(log_level));
 

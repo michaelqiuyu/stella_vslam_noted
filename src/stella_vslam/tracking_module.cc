@@ -422,6 +422,10 @@ bool tracking_module::optimize_current_frame_with_local_map(unsigned int& num_tr
         lm->increase_num_observed();
     }
 
+    std::cout << "track-optimize_current_frame_with_local_map-current_frame.landmarks.size: " << map_db_->get_all_landmarks().size() << std::endl;
+    std::cout << "track-optimize_current_frame_with_local_map-num_tracked_lms: " << num_tracked_lms << std::endl;
+    std::cout << "track-optimize_current_frame_with_local_map-num_reliable_lms: " << num_reliable_lms << std::endl;
+
     constexpr unsigned int num_tracked_lms_thr = 20;
 
     // if recently relocalized, use the more strict threshold
@@ -461,6 +465,9 @@ void tracking_module::update_local_map() {
     local_keyfrms_ = local_map_updater.get_local_keyframes();
     local_landmarks_ = local_map_updater.get_local_landmarks();
     auto nearest_covisibility = local_map_updater.get_nearest_covisibility();
+
+    std::cout << "track-local_landmarks_.size: " << local_landmarks_.size() << std::endl;
+    std::cout << "track-nearest_covisibility.size: " << nearest_covisibility << std::endl;
 
     // update the reference keyframe for the current frame
     if (nearest_covisibility) {
