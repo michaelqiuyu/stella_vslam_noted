@@ -61,7 +61,7 @@ void loop_detector::add_loop_candidate(const std::shared_ptr<data::keyframe>& ke
 bool loop_detector::detect_loop_candidates_impl() {
     // if the loop detector is disabled or the loop has been corrected recently,
     // cannot perfrom the loop correction
-    if (!loop_detector_is_enabled_ || cur_keyfrm_->id_ < prev_loop_correct_keyfrm_id_ + 10) {
+    if (!loop_detector_is_enabled_ || cur_keyfrm_->id_ < prev_loop_correct_keyfrm_id_ + 10) {  // 从这里看，强制回环有可能影响到这里的判断结果
         return false;
     }
 
@@ -69,17 +69,17 @@ bool loop_detector::detect_loop_candidates_impl() {
 
     // 1-1. before inquiring, compute the minimum score of BoW similarity between the current and each of the covisibilities
 
-    const float min_score = compute_min_score_in_covisibilities(cur_keyfrm_);
+    const float min_score = compute_min_score_in_covisibilities(cur_keyfrm_);  // 以共视图的最小得分作为这里的最小得分
 
     // 1-2. inquiring to the BoW database about the similar keyframe whose score is lower than min_score
 
     // Not searching near frames of query_keyframe
-    std::set<std::shared_ptr<data::keyframe>> keyfrms_to_reject;
-    if (!reject_by_graph_distance_) {
+    std::set<std::shared_ptr<data::keyframe>> keyfrms_to_reject;  // 当前帧附近的关键帧，回环关键帧不应该在这个集合里面
+    if (!reject_by_graph_distance_) {  // 默认为false
         keyfrms_to_reject = cur_keyfrm_->graph_node_->get_connected_keyframes();
         keyfrms_to_reject.insert(cur_keyfrm_);
     }
-    else {
+    else {  // 通过本质图获取50个关键帧
         std::vector<std::pair<std::shared_ptr<data::keyframe>, int>> targets;
         targets.emplace_back(cur_keyfrm_, 0);
         keyfrms_to_reject.insert(cur_keyfrm_);
@@ -88,7 +88,7 @@ bool loop_detector::detect_loop_candidates_impl() {
             targets.pop_back();
             auto& keyfrm = keyfrm_distance_pair.first;
             auto& distance = keyfrm_distance_pair.second;
-            if (distance + 1 < min_distance_on_graph_) {
+            if (distance + 1 < min_distance_on_graph_) {  // 50，这里控制的起始是数量
                 // search parent
                 const auto parent = keyfrm->graph_node_->get_spanning_parent();
                 if (parent && !static_cast<bool>(keyfrms_to_reject.count(parent))) {
@@ -121,7 +121,7 @@ bool loop_detector::detect_loop_candidates_impl() {
 
     if (init_loop_candidates.empty()) {
         // clear the buffer because any candidates are not found
-        cont_detected_keyfrm_sets_.clear();
+        cont_detected_keyfrm_sets_.clear();  // 这里要注意，没有候选的时候要清空，否则这个容器会一直扩大
         return false;
     }
 
@@ -134,6 +134,20 @@ bool loop_detector::detect_loop_candidates_impl() {
 
     // 3. if the number of the detection is equal of greater than the threshold (`min_continuity_`),
     //    adopt it as one of the loop candidates
+
+    /**
+     * 列举一种异常的情况：
+     *            0 → 0 → 0 → → 0
+     *            ↑             ↓ → 0（使得&连续性增加，达到阈值）
+     *            ↑   0 → 0 → 0 → & → 0 → 0 → 0 → 0 → 0 → 0 → 0 → 0 → 0
+     *            0 ← 0 ← 0 ← 0 ← 0（使得&的连续性增加，但不到阈值）        ↓
+     *                            ↑                                    ↓
+     *                             0 ← 0 ← 0 ← 0 ← 0 ← 0 ← 0 ← 0 ← 0 ← 0
+     *
+     * 显然第一次的连续性不应该不应该体现在第二次，第二次的连续性应该在0上累加，才比较合理
+     * 最好间隔一段时间，将cont_detected_keyfrm_sets_清空
+     * 当然上面的情况发生的可能性也很低，即使发生影响也不会很大
+     */
 
     loop_candidates_to_validate_.clear();
     for (auto& curr : curr_cont_detected_keyfrm_sets) {
@@ -152,7 +166,7 @@ bool loop_detector::detect_loop_candidates_impl() {
 
     // 5. Add top n covisibilities to the candidates
 
-    if (top_n_covisibilities_to_search_ > 0) {
+    if (top_n_covisibilities_to_search_ > 0) {  // 添加候选关键帧的最优的n个共视关键帧，这里并没有像ORB_SLAM2/3一样计算累计得分，以及共视中的最优关键帧
         auto candidates = loop_candidates_to_validate_;
         for (auto& keyfrm : candidates) {
             auto covisibilities = keyfrm->graph_node_->get_top_n_covisibilities(top_n_covisibilities_to_search_);
@@ -243,7 +257,7 @@ bool loop_detector::validate_candidates_impl() {
     // thus they are excluded from the reprojection
     match::projection projection_matcher(0.75);
     projection_matcher.match_by_Sim3_transform(cur_keyfrm_, Sim3_world_to_curr_, curr_match_lms_observed_in_cand_covis_,
-                                               curr_match_lms_observed_in_cand_, 10);
+                                               curr_match_lms_observed_in_cand_, 10);  // curr_match_lms_observed_in_cand_在前面已经匹配上了
 
     // count up the matches
     unsigned int num_final_matches = 0;
@@ -336,6 +350,7 @@ keyframe_sets loop_detector::find_continuously_detected_keyframe_sets(const keyf
 
         // if initialization is needed, add the new statistics
         if (initialization_is_needed) {
+            // 如果进入到这里，那就意味着保存的是：关键帧、关键帧的连接关键帧集合
             curr_cont_detected_keyfrm_sets.emplace_back(
                 keyframe_set{keyfrm_set, keyfrm_to_search, 0});
         }
@@ -373,6 +388,7 @@ bool loop_detector::select_loop_candidate_via_Sim3(const std::unordered_set<std:
         spdlog::debug("Checking if the loop candidate is appropriate: keyframe {} - keyframe {} (num_matches: {})", candidate->id_, cur_keyfrm_->id_, num_matches);
 
         if (num_matches_thr_brute_force_ > 0) {
+            // curr_match_lms_observed_in_cand中存储的是候选闭环关键帧的地图点
             // Look for more correspondence over more time
             const auto num_matches_brute_force = robust_matcher.match_keyframes(cur_keyfrm_, candidate, curr_match_lms_observed_in_cand, false);
 
@@ -383,7 +399,7 @@ bool loop_detector::select_loop_candidate_via_Sim3(const std::unordered_set<std:
             }
         }
 
-        std::vector<unsigned int> valid_indices;
+        std::vector<unsigned int> valid_indices;  // 候选闭环关键帧的地图点
         valid_indices.reserve(curr_match_lms_observed_in_cand.size());
         for (unsigned int idx = 0; idx < curr_match_lms_observed_in_cand.size(); ++idx) {
             auto lm = curr_match_lms_observed_in_cand.at(idx);
@@ -404,7 +420,7 @@ bool loop_detector::select_loop_candidate_via_Sim3(const std::unordered_set<std:
         for (unsigned int i = 0; i < valid_indices.size(); ++i) {
             valid_landmarks.at(i) = valid_assoc_lms.at(i)->get_pos_in_world();
         }
-        // Setup PnP solver
+        // Setup PnP solver：这里计算的是当前关键帧的位姿
         auto pnp_solver = std::unique_ptr<solve::pnp_solver>(new solve::pnp_solver(valid_bearings, valid_keypts, valid_landmarks,
                                                                                    cur_keyfrm_->orb_params_->scale_factors_,
                                                                                    use_fixed_seed_));
@@ -428,6 +444,7 @@ bool loop_detector::select_loop_candidate_via_Sim3(const std::unordered_set<std:
         // Pose optimization
         std::vector<bool> outlier_flags;
         g2o::SE3Quat optimized_pose;
+        // 使用EPNP + RANSAC的内点来执行优化当前关键帧的位姿（固定地图点）
         auto num_valid_obs = pose_optimizer_.optimize(pnp_solver->get_best_cam_pose(), cur_keyfrm_->frm_obs_, cur_keyfrm_->orb_params_, cur_keyfrm_->camera_,
                                                       curr_match_lms_observed_in_cand, optimized_pose, outlier_flags);
 
@@ -455,6 +472,7 @@ bool loop_detector::select_loop_candidate_via_Sim3(const std::unordered_set<std:
             already_found_landmarks.insert(curr_match_lms_observed_in_cand.at(idx));
         }
 
+        // 将candidate中的地图点往当前关键帧进行投影
         // Projection match based on the pre-optimized camera pose
         auto num_found = projection_matcher.match_frame_and_keyframe(util::converter::to_eigen_mat(optimized_pose), cur_keyfrm_->camera_, cur_keyfrm_->frm_obs_,
                                                                      cur_keyfrm_->orb_params_, curr_match_lms_observed_in_cand,
@@ -469,6 +487,7 @@ bool loop_detector::select_loop_candidate_via_Sim3(const std::unordered_set<std:
 
         g2o::SE3Quat optimized_pose1;
         std::vector<bool> outlier_flags1;
+        // 再次对当前关键帧的位姿进行优化（固定地图点）
         auto num_valid_obs1 = pose_optimizer_.optimize(util::converter::to_eigen_mat(optimized_pose),
                                                        cur_keyfrm_->frm_obs_, cur_keyfrm_->orb_params_, cur_keyfrm_->camera_,
                                                        curr_match_lms_observed_in_cand, optimized_pose1, outlier_flags1);
@@ -486,6 +505,7 @@ bool loop_detector::select_loop_candidate_via_Sim3(const std::unordered_set<std:
             }
             already_found_landmarks1.insert(curr_match_lms_observed_in_cand.at(idx));
         }
+        // 将candidate中的地图点往当前关键帧进行投影
         // Apply projection match again, then set the 2D-3D matches
         auto num_additional = projection_matcher.match_frame_and_keyframe(util::converter::to_eigen_mat(optimized_pose1), cur_keyfrm_->camera_, cur_keyfrm_->frm_obs_,
                                                                           cur_keyfrm_->orb_params_, curr_match_lms_observed_in_cand,
@@ -501,6 +521,7 @@ bool loop_detector::select_loop_candidate_via_Sim3(const std::unordered_set<std:
         // Perform optimization again
         g2o::SE3Quat optimized_pose2;
         std::vector<bool> outlier_flags2;
+        // 再次对当前关键帧的位姿进行优化（固定地图点）
         auto num_valid_obs2 = pose_optimizer_.optimize(util::converter::to_eigen_mat(optimized_pose1),
                                                        cur_keyfrm_->frm_obs_, cur_keyfrm_->orb_params_, cur_keyfrm_->camera_,
                                                        curr_match_lms_observed_in_cand, optimized_pose2, outlier_flags2);
@@ -533,6 +554,11 @@ bool loop_detector::select_loop_candidate_via_Sim3(const std::unordered_set<std:
             if (lm_cand->will_be_erased() || lm_curr->will_be_erased()) {
                 continue;
             }
+            /**
+             * sim3变换的R和t即为上面优化的结果，尺度计算的原理：
+             *  对于candidate下面的某个点（相机系）p，pose1_in_cand = R * p + t，即没有尺度漂移的时候当前关键帧看到这个地图点在其相机系下的坐标
+             *  对于当前关键帧而言，根据sim3原理有，pose_1_in_curr = sR * p + st，这里的st比较难以理解（为什么不是t），实际上这里是t'，且t' = st，t'是尺度缩放后的平移，而非缩放前，因为t'是与缩放后的sR * p相加
+             */
             const Vec3_t pos_w_lm_cand = lm_cand->get_pos_in_world();
             const Vec3_t pos_w_lm_curr = lm_curr->get_pos_in_world();
             const Vec3_t pos_1_in_cand = rot_1w_in_cand * pos_w_lm_cand + trans_1w_in_cand;
@@ -555,7 +581,7 @@ bool loop_detector::select_loop_candidate_via_Sim3(const std::unordered_set<std:
         const Mat33_t rot_12 = rot_1w_in_cand * candidate->get_rot_cw().transpose();
         const Vec3_t trans_12 = -rot_12 * candidate->get_trans_cw() + trans_1w_in_cand;
         std::sort(scales.begin(), scales.end());
-        const float scale_12 = scales[(scales.size() - 1) / 2];
+        const float scale_12 = scales[(scales.size() - 1) / 2];  // 中值
 
         // perforn non-linear optimization of the estimated Sim3
 

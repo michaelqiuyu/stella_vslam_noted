@@ -60,7 +60,7 @@ std::vector<std::shared_ptr<keyframe>> bow_database::acquire_keyframes(const bow
     // Step 1.
     // Count up the number of nodes, words which are shared with query_keyframe, for all the keyframes in DoW database
 
-    const auto num_common_words = compute_num_common_words(bow_vec, keyfrms_to_reject);
+    const auto num_common_words = compute_num_common_words(bow_vec, keyfrms_to_reject);  // 不在共视图中的有相同单词的关键帧
     if (num_common_words.empty()) {
         return std::vector<std::shared_ptr<keyframe>>();
     }
@@ -74,17 +74,20 @@ std::vector<std::shared_ptr<keyframe>> bow_database::acquire_keyframes(const bow
             max_num_common_words = keyfrm_num_common_words_pair.second;
         }
     }
-    const auto min_num_common_words_thr = static_cast<unsigned int>(0.8f * max_num_common_words);
+    const auto min_num_common_words_thr = static_cast<unsigned int>(0.8f * max_num_common_words);  // 以最高得分的0.8倍作为阈值
 
     // Step 2.
     // Collect keyframe candidates which have more shared words than min_num_common_words_thr
     // by calculating similarity score between each candidate and the query keyframe.
 
     float best_score = min_score;
+    // 获取候选关键帧中共视单词数量在min_num_common_words_thr之上，得分在min_score之上的关键帧，并保存得分信息
     const auto scores = compute_scores(num_common_words, bow_vec, min_num_common_words_thr, min_score, best_score);
     if (scores.empty()) {
         return std::vector<std::shared_ptr<keyframe>>();
     }
+
+    // 这里没有对候选关键帧再次进行共视关键帧累计得分的验证，与ORB_SLAM2/3不同，并且对于ORB_SLAM2/3来说，这里有个bug
 
     std::unordered_set<std::shared_ptr<keyframe>> final_candidates;
     for (const auto& keyfrm_score : scores) {
@@ -94,6 +97,7 @@ std::vector<std::shared_ptr<keyframe>> bow_database::acquire_keyframes(const bow
     return std::vector<std::shared_ptr<keyframe>>(final_candidates.begin(), final_candidates.end());
 }
 
+// 与关键帧有相同单词的又不在kerfrms_to_reject中的关键帧，并记录单词数量
 std::unordered_map<std::shared_ptr<keyframe>, unsigned int>
 bow_database::compute_num_common_words(const bow_vector& bow_vec,
                                        const std::set<std::shared_ptr<keyframe>>& keyfrms_to_reject) const {

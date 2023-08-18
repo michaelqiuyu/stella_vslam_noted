@@ -63,15 +63,15 @@ bool keyframe_inserter::new_keyframe_is_needed(data::map_database* map_db,
 
     // New keyframe is needed if the time elapsed since the last keyframe insertion reaches the threshold
     bool max_interval_elapsed = false;
-    if (max_interval_ > 0.0) {
+    if (max_interval_ > 0.0) {  // max_interval_为const，1s
         max_interval_elapsed = last_inserted_keyfrm && last_inserted_keyfrm->timestamp_ + max_interval_ <= curr_frm.timestamp_;
     }
     bool min_interval_elapsed = true;
-    if (min_interval_ > 0.0) {
+    if (min_interval_ > 0.0) {  // min_interval_为const，1s
         min_interval_elapsed = !last_inserted_keyfrm || last_inserted_keyfrm->timestamp_ + min_interval_ <= curr_frm.timestamp_;
     }
     bool max_distance_traveled = false;
-    if (max_distance_ > 0.0) {
+    if (max_distance_ > 0.0) {  // max_distance_为const，-1，也就是不会判断这个条件
         max_distance_traveled = last_inserted_keyfrm && (last_inserted_keyfrm->get_trans_wc() - curr_frm.get_trans_wc()).norm() > max_distance_;
     }
     // New keyframe is needed if the field-of-view of the current frame is changed a lot

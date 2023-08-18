@@ -13,9 +13,11 @@
 
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
+#include <opencv2/imgcodecs.hpp>
 
 namespace stella_vslam {
 namespace data {
+int count = 1;
 
 keyframe::keyframe(unsigned int id, const frame& frm)
     : id_(id), timestamp_(frm.timestamp_),
@@ -25,6 +27,18 @@ keyframe::keyframe(unsigned int id, const frame& frm)
       landmarks_(frm.get_landmarks()) {
     // set pose parameters (pose_wc_, trans_wc_) using frm.pose_cw_
     set_pose_cw(frm.get_pose_cw());
+
+#ifdef USE_IMG
+    set_img(frm.get_img());
+#endif
+
+#ifdef USE_IMG_GRAY
+    set_img_gray(frm.get_img_gray());
+#endif
+
+#ifdef USE_KEYPTS
+    set_keypts(frm.get_keypts());
+#endif
 }
 
 keyframe::keyframe(const unsigned int id, const double timestamp,
@@ -186,6 +200,12 @@ nlohmann::json keyframe::to_json() const {
             {"depths", frm_obs_.depths_},
             {"descs", convert_descriptors_to_json(frm_obs_.descriptors_)},
             {"lm_ids", landmark_ids},
+//#ifdef USE_IMG_AND_SAVE_IMG
+//            {"img", img_},
+//#endif
+//#ifdef USE_IMG_GRAY_AND_SAVE_IMG_GRAY
+//            {"img_gray", img_gray_},
+//#endif
             // graph information
             {"span_parent", spanning_parent ? spanning_parent->id_ : -1},
             {"span_children", spanning_child_ids},
@@ -410,6 +430,7 @@ Vec3_t keyframe::triangulate_stereo(const unsigned int idx) const {
     return data::triangulate_stereo(camera_, pose_wc.block<3, 3>(0, 0), pose_wc.block<3, 1>(0, 3), frm_obs_, idx);
 }
 
+// 求解的是这个关键帧对应的所有的地图点的深度的平均值
 float keyframe::compute_median_depth(const bool abs) const {
     std::vector<std::shared_ptr<landmark>> landmarks;
     Mat44_t pose_cw;
@@ -430,7 +451,8 @@ float keyframe::compute_median_depth(const bool abs) const {
             continue;
         }
         const Vec3_t pos_w = lm->get_pos_in_world();
-        const auto pos_c_z = rot_cw_z_row.dot(pos_w) + trans_cw_z;
+        const auto pos_c_z = rot_cw_z_row.dot(pos_w) + trans_cw_z;  // 其实就是相机系下的深度，这样做比求整个坐标降低了运算量
+        // equirectangular represent 360 FOV, z will be negative
         depths.push_back(abs ? std::abs(pos_c_z) : pos_c_z);
     }
 
@@ -522,6 +544,40 @@ void keyframe::prepare_for_erasing(map_database* map_db, bow_database* bow_db) {
 
 bool keyframe::will_be_erased() {
     return will_be_erased_;
+}
+
+
+// by xiongchao
+void keyframe::set_img(cv::Mat img) {
+    img_ = img;
+}
+
+cv::Mat keyframe::get_img() {
+    return img_;
+}
+
+void keyframe::set_img_gray(cv::Mat img_gray) {
+    img_gray_ = img_gray;
+}
+
+cv::Mat keyframe::get_img_gray() {
+    return img_gray_;
+}
+
+void keyframe::set_keypts(std::vector<cv::KeyPoint> keypts) {
+    keypts_ = keypts;
+}
+
+std::vector<cv::KeyPoint> keyframe::get_keypts() {
+    return keypts_;
+}
+
+void keyframe::set_matched_landmarks(std::vector<std::shared_ptr<data::landmark>> matched_landmarks) {
+    matched_landmarks_ = matched_landmarks;
+}
+
+std::vector<std::shared_ptr<data::landmark>> keyframe::get_matched_landmarks() {
+    return matched_landmarks_;
 }
 
 } // namespace data

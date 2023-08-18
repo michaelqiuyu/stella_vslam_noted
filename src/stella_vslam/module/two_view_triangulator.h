@@ -101,6 +101,7 @@ inline bool two_view_triangulator::check_scale_factors(const Vec3_t& pos_w, cons
         return false;
     }
 
+    // 距离越远，越模糊，尺度越大
     const auto ratio_dists = cam_2_to_lm_dist / cam_1_to_lm_dist;
     const auto ratio_octave = scale_factor_1 / scale_factor_2;
 

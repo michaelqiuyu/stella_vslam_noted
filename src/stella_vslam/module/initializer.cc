@@ -76,12 +76,13 @@ bool initializer::initialize(const camera::setup_type_t setup_type,
             create_map_for_monocular(bow_vocab, curr_frm);
             break;
         }
+        // the initial methods of stereo and RGBD are same.
         case camera::setup_type_t::Stereo:
         case camera::setup_type_t::RGBD: {
             state_ = initializer_state_t::Initializing;
 
-            // try to initialize
-            if (!try_initialize_for_stereo(curr_frm)) {
+            // try to initialize: no need to create_initializer, initialization directly
+            if (!try_initialize_for_stereo(curr_frm)) {  // the count of mappoint whose depth greater 0
                 // failed
                 return false;
             }

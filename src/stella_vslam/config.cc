@@ -37,6 +37,7 @@ config::config(const YAML::Node& yaml_node, const std::string& config_file_path)
             throw std::runtime_error("Invalid marker model type :" + marker_model_type);
         }
     }
+
 }
 
 config::~config() {

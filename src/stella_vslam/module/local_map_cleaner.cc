@@ -36,12 +36,12 @@ unsigned int local_map_cleaner::remove_invalid_landmarks(const unsigned int cur_
             // remove `lm` from the buffer
             lm_state = lm_state_t::Valid;
         }
-        else if (lm->get_observed_ratio() < observed_ratio_thr_) {
+        else if (lm->get_observed_ratio() < observed_ratio_thr_) {  // 可观性不佳
             // if `lm` is not reliable
             // remove `lm` from the buffer and the database
             lm_state = lm_state_t::Invalid;
         }
-        else if (num_reliable_keyfrms_ + lm->first_keyfrm_id_ < cur_keyfrm_id) {
+        else if (num_reliable_keyfrms_ + lm->first_keyfrm_id_ < cur_keyfrm_id) {  // 有可能这个点是前面的关键帧生成的，前面没有删除掉，到了这里就可以删除了，这个点是正常的，到了这里看不到也正常
             // if the number of the observers of `lm` is sufficient after some keyframes were inserted
             // remove `lm` from the buffer
             lm_state = lm_state_t::Valid;
@@ -53,7 +53,7 @@ unsigned int local_map_cleaner::remove_invalid_landmarks(const unsigned int cur_
         }
         else if (lm_state == lm_state_t::Invalid) {
             ++num_removed;
-            lm->prepare_for_erasing(map_db_);
+            lm->prepare_for_erasing(map_db_);  // 从地图数据库中删除了
             iter = fresh_landmarks_.erase(iter);
         }
         else {
@@ -96,10 +96,11 @@ unsigned int local_map_cleaner::remove_redundant_keyframes(const std::shared_ptr
         count_redundant_observations(covisibility, num_valid_obs, num_redundant_obs);
 
         // if the redundant observation ratio of `covisibility` is larger than the threshold, it will be removed
-        if (redundant_obs_ratio_thr_ <= static_cast<float>(num_redundant_obs) / num_valid_obs) {
+        if (redundant_obs_ratio_thr_ <= static_cast<float>(num_redundant_obs) / num_valid_obs) {  // 比例阈值为0.9
             ++num_removed;
             const auto cur_landmarks = covisibility->get_landmarks();
             covisibility->prepare_for_erasing(map_db_, bow_db_);
+            // 删除了一个观测，因此需要重新计算地图点的几何
             for (const auto& lm : cur_landmarks) {
                 if (!lm) {
                     continue;
@@ -153,6 +154,8 @@ void local_map_cleaner::count_redundant_observations(const std::shared_ptr<data:
         if (lm->num_observations() <= num_better_obs_thr) {
             continue;
         }
+
+        // 地图点能够被除本关键帧之外的至少3个关键帧在比当前尺度+1小的尺度上观察到，就认为这个地图点是redundant的
 
         // `keyfrm` observes `lm` with the scale level `scale_level`
         const auto scale_level = keyfrm->frm_obs_.undist_keypts_.at(idx).octave;

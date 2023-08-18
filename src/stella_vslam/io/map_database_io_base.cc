@@ -1,9 +1,12 @@
 #include "stella_vslam/data/keyframe.h"
 #include "stella_vslam/io/map_database_io_base.h"
 #include "stella_vslam/data/map_database.h"
+#include "stella_vslam/test_macro.h"
 
 #include <spdlog/spdlog.h>
 #include <fstream>
+#include <iomanip>
+#include <opencv2/imgcodecs.hpp>
 
 namespace stella_vslam {
 namespace io {
@@ -30,6 +33,17 @@ void map_database_io_base::save_pose_txt(const std::string& path, data::map_data
     } else {
         spdlog::critical("cannot create a file at {}", path);
     }
+
+#ifdef SAVE_KEYFRAME_IMAGE
+    std::string kf_images = "/home/xiongchao/workspace/leador/project/vslam/dataset/leador/reloc_test/outdoor/front_kf_images/";
+
+    const auto keyfrms = map_db->get_all_keyframes();
+    for (const auto& keyfrm : keyfrms) {
+        int frame_count = int(round(keyfrm->timestamp_ * keyfrm->camera_->fps_));
+        std::string image_name = kf_images + "/" + std::to_string(frame_count) + ".jpg";
+        cv::imwrite(image_name, keyfrm->get_img());
+    }
+#endif
 }
 
 

@@ -1,10 +1,8 @@
 #include "util/image_util.h"
 
-#ifdef USE_PANGOLIN_VIEWER
+
 #include "pangolin_viewer/viewer.h"
-#elif USE_SOCKET_PUBLISHER
-#include "socket_publisher/publisher.h"
-#endif
+
 
 #include "stella_vslam/system.h"
 #include "stella_vslam/config.h"
@@ -20,7 +18,7 @@
 #include <opencv2/core/types.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <spdlog/spdlog.h>
-#include <popl.hpp>
+
 
 #include <ghc/filesystem.hpp>
 namespace fs = ghc::filesystem;
@@ -50,13 +48,8 @@ void mono_tracking(const std::shared_ptr<stella_vslam::system>& slam,
     const image_sequence sequence(image_dir_path);
     const auto frames = sequence.get_frames();
 
-#ifdef USE_PANGOLIN_VIEWER
     pangolin_viewer::viewer viewer(
         stella_vslam::util::yaml_optional_ref(cfg->yaml_node_, "PangolinViewer"), slam, slam->get_frame_publisher(), slam->get_map_publisher());
-#elif USE_SOCKET_PUBLISHER
-    socket_publisher::publisher publisher(
-        stella_vslam::util::yaml_optional_ref(cfg->yaml_node_, "SocketPublisher"), slam, slam->get_frame_publisher(), slam->get_map_publisher());
-#endif
 
     std::vector<double> track_times;
     track_times.reserve(frames.size());
@@ -114,23 +107,14 @@ void mono_tracking(const std::shared_ptr<stella_vslam::system>& slam,
         }
 
         // automatically close the viewer
-#ifdef USE_PANGOLIN_VIEWER
+
         if (auto_term) {
             viewer.request_terminate();
         }
-#elif USE_SOCKET_PUBLISHER
-        if (auto_term) {
-            publisher.request_terminate();
-        }
-#endif
     });
 
     // run the viewer in the current thread
-#ifdef USE_PANGOLIN_VIEWER
     viewer.run();
-#elif USE_SOCKET_PUBLISHER
-    publisher.run();
-#endif
 
     thread.join();
 
@@ -167,63 +151,65 @@ int main(int argc, char* argv[]) {
     backward::SignalHandling sh;
 #endif
 
-    // create options
-    popl::OptionParser op("Allowed options");
-    auto help = op.add<popl::Switch>("h", "help", "produce help message");
-    auto vocab_file_path = op.add<popl::Value<std::string>>("v", "vocab", "vocabulary file path");
-    auto img_dir_path = op.add<popl::Value<std::string>>("", "img-dir", "directory path which contains images");
-    auto config_file_path = op.add<popl::Value<std::string>>("c", "config", "config file path");
-    auto mask_img_path = op.add<popl::Value<std::string>>("", "mask", "mask image path", "");
-    auto frame_skip = op.add<popl::Value<unsigned int>>("", "frame-skip", "interval of frame skip", 1);
-    auto no_sleep = op.add<popl::Switch>("", "no-sleep", "not wait for next frame in real time");
-    auto wait_loop_ba = op.add<popl::Switch>("", "wait-loop-ba", "wait until the loop BA is finished");
-    auto auto_term = op.add<popl::Switch>("", "auto-term", "automatically terminate the viewer");
-    auto log_level = op.add<popl::Value<std::string>>("", "log-level", "log level", "info");
-    auto eval_log_dir = op.add<popl::Value<std::string>>("", "eval-log-dir", "store trajectory and tracking times at this path (Specify the directory where it exists.)", "");
-    auto map_db_path_in = op.add<popl::Value<std::string>>("i", "map-db-in", "load a map from this path", "");
-    auto map_db_path_out = op.add<popl::Value<std::string>>("o", "map-db-out", "store a map database at this path after slam", "");
-    auto disable_mapping = op.add<popl::Switch>("", "disable-mapping", "disable mapping");
-    auto start_timestamp = op.add<popl::Value<double>>("t", "start-timestamp", "timestamp of the start of the video capture");
-    try {
-        op.parse(argc, argv);
-    }
-    catch (const std::exception& e) {
-        std::cout << "1" << std::endl;
-        std::cerr << e.what() << std::endl;
-        std::cerr << std::endl;
-        std::cerr << op << std::endl;
-        return EXIT_FAILURE;
-    }
-
-    // check validness of options
-    if (help->is_set()) {
-        std::cerr << op << std::endl;
-        return EXIT_FAILURE;
-    }
-    if (!op.unknown_options().empty()) {
-        std::cout << "2" << std::endl;
-        for (const auto& unknown_option : op.unknown_options()) {
-            std::cerr << "unknown_options: " << unknown_option << std::endl;
-        }
-        std::cerr << op << std::endl;
-        return EXIT_FAILURE;
-    }
-    if (!vocab_file_path->is_set() || !img_dir_path->is_set() || !config_file_path->is_set()) {
-        std::cout << "3" << std::endl;
-        std::cerr << "invalid arguments" << std::endl;
-        std::cerr << std::endl;
-        std::cerr << op << std::endl;
-        return EXIT_FAILURE;
-    }
+//    // create options
+//    popl::OptionParser op("Allowed options");
+//    auto help = op.add<popl::Switch>("h", "help", "produce help message");
+//    auto vocab_file_path = op.add<popl::Value<std::string>>("v", "vocab", "vocabulary file path");
+//    auto img_dir_path = op.add<popl::Value<std::string>>("", "img-dir", "directory path which contains images");
+//    auto config_file_path = op.add<popl::Value<std::string>>("c", "config", "config file path");
+//    auto mask_img_path = op.add<popl::Value<std::string>>("", "mask", "mask image path", "");
+//    auto frame_skip = op.add<popl::Value<unsigned int>>("", "frame-skip", "interval of frame skip", 1);
+//    auto no_sleep = op.add<popl::Switch>("", "no-sleep", "not wait for next frame in real time");
+//    auto wait_loop_ba = op.add<popl::Switch>("", "wait-loop-ba", "wait until the loop BA is finished");
+//    auto auto_term = op.add<popl::Switch>("", "auto-term", "automatically terminate the viewer");
+//    auto log_level = op.add<popl::Value<std::string>>("", "log-level", "log level", "info");
+//    auto eval_log_dir = op.add<popl::Value<std::string>>("", "eval-log-dir", "store trajectory and tracking times at this path (Specify the directory where it exists.)", "");
+//    auto map_db_path_in = op.add<popl::Value<std::string>>("i", "map-db-in", "load a map from this path", "");
+//    auto map_db_path_out = op.add<popl::Value<std::string>>("o", "map-db-out", "store a map database at this path after slam", "");
+//    auto disable_mapping = op.add<popl::Switch>("", "disable-mapping", "disable mapping");
+//    auto start_timestamp = op.add<popl::Value<double>>("t", "start-timestamp", "timestamp of the start of the video capture");
+//    try {
+//        op.parse(argc, argv);
+//    }
+//    catch (const std::exception& e) {
+//        std::cout << "1" << std::endl;
+//        std::cerr << e.what() << std::endl;
+//        std::cerr << std::endl;
+//        std::cerr << op << std::endl;
+//        return EXIT_FAILURE;
+//    }
+//
+//    // check validness of options
+//    if (help->is_set()) {
+//        std::cerr << op << std::endl;
+//        return EXIT_FAILURE;
+//    }
+//    if (!op.unknown_options().empty()) {
+//        std::cout << "2" << std::endl;
+//        for (const auto& unknown_option : op.unknown_options()) {
+//            std::cerr << "unknown_options: " << unknown_option << std::endl;
+//        }
+//        std::cerr << op << std::endl;
+//        return EXIT_FAILURE;
+//    }
+//    if (!vocab_file_path->is_set() || !img_dir_path->is_set() || !config_file_path->is_set()) {
+//        std::cout << "3" << std::endl;
+//        std::cerr << "invalid arguments" << std::endl;
+//        std::cerr << std::endl;
+//        std::cerr << op << std::endl;
+//        return EXIT_FAILURE;
+//    }
 
     // setup logger
+    const std::string log_level = "debug";
     spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] %^[%L] %v%$");
-    spdlog::set_level(spdlog::level::from_str(log_level->value()));
+    spdlog::set_level(spdlog::level::from_str(log_level));
 
     // load configuration
+    const std::string config_file_path = "/media/xiongchao/4BFEB161E3205D4B1/workspace/project/vslam/dataset/perspective/MH_01_EASY/EuRoC_mono.yaml";
     std::shared_ptr<stella_vslam::config> cfg;
     try {
-        cfg = std::make_shared<stella_vslam::config>(config_file_path->value());
+        cfg = std::make_shared<stella_vslam::config>(config_file_path);
     }
     catch (const std::exception& e) {
         std::cerr << e.what() << std::endl;
@@ -238,52 +224,62 @@ int main(int argc, char* argv[]) {
     // It is recommended to specify the timestamp when the video recording was started in Unix time.
     // If not specified, the current system time is used instead.
     double timestamp = 0.0;
-    if (!start_timestamp->is_set()) {
-        std::cerr << "--start-timestamp is not set. using system timestamp." << std::endl;
-        if (no_sleep->is_set()) {
-            std::cerr << "If --no-sleep is set without --start-timestamp, timestamps may overlap between multiple runs." << std::endl;
-        }
-        std::chrono::system_clock::time_point start_time_system = std::chrono::system_clock::now();
-        timestamp = std::chrono::duration_cast<std::chrono::duration<double>>(start_time_system.time_since_epoch()).count();
-    }
-    else {
-        timestamp = start_timestamp->value();
-    }
+//    if (!start_timestamp->is_set()) {
+//        std::cerr << "--start-timestamp is not set. using system timestamp." << std::endl;
+//        if (no_sleep->is_set()) {
+//            std::cerr << "If --no-sleep is set without --start-timestamp, timestamps may overlap between multiple runs." << std::endl;
+//        }
+//        std::chrono::system_clock::time_point start_time_system = std::chrono::system_clock::now();
+//        timestamp = std::chrono::duration_cast<std::chrono::duration<double>>(start_time_system.time_since_epoch()).count();
+//    }
+//    else {
+//        timestamp = start_timestamp->value();
+//    }
 
     // build a slam system
-    auto slam = std::make_shared<stella_vslam::system>(cfg, vocab_file_path->value());
+    const std::string vocab_file_path = "/home/xiongchao/workspace/leador/project/vslam/code/stella_vslam_noted/3rd/FBoW/orb_vocab.fbow";
+
+    auto slam = std::make_shared<stella_vslam::system>(cfg, vocab_file_path);
     bool need_initialize = true;
-    if (map_db_path_in->is_set()) {
-        need_initialize = false;
-        const auto path = fs::path(map_db_path_in->value());
-        if (path.extension() == ".yaml") {
-            YAML::Node node = YAML::LoadFile(path);
-            for (const auto& map_path : node["maps"].as<std::vector<std::string>>()) {
-                slam->load_map_database(path.parent_path() / map_path);
-            }
-        }
-        else {
-            // load the prebuilt map
-            slam->load_map_database(path);
-        }
-    }
+//    if (map_db_path_in->is_set()) {
+//        need_initialize = false;
+//        const auto path = fs::path(map_db_path_in->value());
+//        if (path.extension() == ".yaml") {
+//            YAML::Node node = YAML::LoadFile(path);
+//            for (const auto& map_path : node["maps"].as<std::vector<std::string>>()) {
+//                slam->load_map_database(path.parent_path() / map_path);
+//            }
+//        }
+//        else {
+//            // load the prebuilt map
+//            slam->load_map_database(path);
+//        }
+//    }
     slam->startup(need_initialize);
-    if (disable_mapping->is_set()) {
-        slam->disable_mapping_module();
-    }
+//    if (disable_mapping->is_set()) {
+//        slam->disable_mapping_module();
+//    }
 
     // run tracking
+    const std::string img_dir_path = "/media/xiongchao/4BFEB161E3205D4B1/workspace/project/vslam/dataset/perspective/MH_01_EASY/Cam0";
+    const auto mask_img_path = "";
+    const int frame_skip = 1;
+    const bool no_sleep = true;
+    const bool wait_loop_ba = false;
+    const bool auto_term = false;
+    const std::string eval_log_dir = "";
+    const std::string map_db_path_out = "";
     if (slam->get_camera()->setup_type_ == stella_vslam::camera::setup_type_t::Monocular) {
         mono_tracking(slam,
                       cfg,
-                      img_dir_path->value(),
-                      mask_img_path->value(),
-                      frame_skip->value(),
-                      no_sleep->is_set(),
-                      wait_loop_ba->is_set(),
-                      auto_term->is_set(),
-                      eval_log_dir->value(),
-                      map_db_path_out->value(),
+                      img_dir_path,
+                      mask_img_path,
+                      frame_skip,
+                      no_sleep,
+                      wait_loop_ba,
+                      auto_term,
+                      eval_log_dir,
+                      map_db_path_out,
                       timestamp);
     }
     else {

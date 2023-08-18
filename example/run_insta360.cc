@@ -9,6 +9,8 @@
 #include "stella_vslam/config.h"
 #include "stella_vslam/camera/base.h"
 #include "stella_vslam/util/yaml.h"
+#include "stella_vslam/util/image.h"
+#include "stella_vslam/data/landmark.h"
 
 #include <iostream>
 #include <chrono>
@@ -19,8 +21,11 @@
 #include <opencv2/core/types.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/videoio.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/opencv.hpp>
 #include <spdlog/spdlog.h>
 #include <popl.hpp>
+#include <iomanip>
 
 #include <ghc/filesystem.hpp>
 namespace fs = ghc::filesystem;
@@ -32,6 +37,52 @@ namespace fs = ghc::filesystem;
 #ifdef USE_GOOGLE_PERFTOOLS
 #include <gperftools/profiler.h>
 #endif
+
+cv::Mat save_match_info(const std::shared_ptr<stella_vslam::data::keyframe> &keyfrm, cv::Mat &candidate_image, const stella_vslam::data::frame &frame,
+                        cv::Mat &curr_image, unsigned int rows) {
+//    for (auto &kpt: frame.frm_obs_.undist_keypts_)
+//        cv::circle(curr_image, kpt.pt, 5, cv::Scalar(255, 0, 0), 2, 4, 0);
+//
+//    for (auto &kpt: keyfrm->frm_obs_.undist_keypts_) {
+//        cv::circle(candidate_image, kpt.pt, 5, cv::Scalar(255, 0, 0), 2, 4, 0);
+//    }
+
+    for (auto &lm: keyfrm->get_landmarks()) {
+        if (!lm)
+            continue;
+
+        const auto idx = lm->get_index_in_keyframe(keyfrm);
+        if (idx == -1)
+            continue;
+
+        auto kpt = keyfrm->frm_obs_.undist_keypts_[idx];
+        cv::circle(candidate_image, kpt.pt, 5, cv::Scalar(255, 0, 0), 2, 4, 0);
+    }
+
+
+    cv::Mat combine_image;
+    cv::vconcat(curr_image, candidate_image, combine_image);
+
+    std::vector<std::shared_ptr<stella_vslam::data::landmark>> matched_landmarks = keyfrm->get_matched_landmarks();
+    for (unsigned int idx = 0; idx < matched_landmarks.size(); ++idx) {
+        auto& lm = matched_landmarks.at(idx);
+        if (!lm)
+            continue;
+
+        auto kpt1 = frame.frm_obs_.undist_keypts_[idx];
+        const auto idx_2 = lm->get_index_in_keyframe(keyfrm);
+        if (idx_2 == -1)
+            continue;
+
+        auto kpt2 = keyfrm->frm_obs_.undist_keypts_[idx_2];
+        cv::Point2f pt2 = cv::Point2f(kpt2.pt.x, kpt2.pt.y + rows);
+        cv::circle(combine_image, kpt1.pt, 5, cv::Scalar(0, 255, 0), 2, 4, 0);
+        cv::circle(combine_image, pt2, 5, cv::Scalar(0, 255, 255), 2, 4, 0);
+        cv::line(combine_image, kpt1.pt, pt2, cv::Scalar(0, 255, 0));
+    }
+
+    return combine_image;
+}
 
 void mono_tracking(const std::shared_ptr<stella_vslam::system>& slam,
                    const std::shared_ptr<stella_vslam::config>& cfg,
@@ -46,9 +97,12 @@ void mono_tracking(const std::shared_ptr<stella_vslam::system>& slam,
                    const std::string& map_db_path,
                    const double start_timestamp,
                    const unsigned int start_frame,
+                   const unsigned int end_frame,
                    const bool is_reloc,
                    const std::string &track_pose_file = "",
-                   const std::string &map_pose_file = "") {
+                   const std::string &map_pose_file = "",
+                   const std::string &map_image_file = "",
+                   const std::string &reloc_candidate_file = "") {
     // load the mask image
     const cv::Mat mask = mask_img_path.empty() ? cv::Mat{} : cv::imread(mask_img_path, cv::IMREAD_GRAYSCALE);
 
@@ -76,6 +130,10 @@ void mono_tracking(const std::shared_ptr<stella_vslam::system>& slam,
 
     unsigned int num_frame = 0;
     double timestamp = start_timestamp;
+    // 有可能不是从第一帧开始的，记录这个值，方便从时间戳上面得到帧号
+    if (abs(start_timestamp) < 1e-6) {
+        timestamp += start_frame / slam->get_camera()->fps_;
+    }
 
     // 保存重定位相关的信息
     int reloc_total = 0, reloc_succ = 0;
@@ -107,6 +165,8 @@ void mono_tracking(const std::shared_ptr<stella_vslam::system>& slam,
           is_not_end = video.read(frame);
 
           const auto tp_1 = std::chrono::steady_clock::now();
+          if (end_frame != 0 && num_frame + start_frame > end_frame)
+              break;
 
           // frame by frame reloc
           if (is_reloc) {
@@ -115,11 +175,17 @@ void mono_tracking(const std::shared_ptr<stella_vslam::system>& slam,
               slam->set_track_state(stella_vslam::tracker_state_t::Lost);
           }
 
-          if (!frame.empty() && (num_frame % frame_skip == 0)) {
-              // input the current frame and estimate the camera pose
+          // 全景图像有时候会是纯色的
+          if (!frame.empty() && (num_frame % frame_skip == 0) && !stella_vslam::util::is_pure_color(frame)) {
+              // input the current frame and estimate the camera pose: the pose will be nullptr
               std::shared_ptr<stella_vslam::Mat44_t> Twc = slam->feed_monocular_frame(frame, timestamp, mask);  // track result, not map result, only use to reloc analysis
 
-              if (!track_pose_file.empty()) {
+#if 0
+              if (num_frame % 20 == 0)
+                cv::imwrite("/home/xiongchao/图片/images/" + std::to_string(num_frame) + ".jpg", frame);
+#endif
+
+              if (!track_pose_file.empty() && Twc) {  // judge nullptr
                   Eigen::Quaterniond q(Twc->block<3, 3>(0, 0));
                   Eigen::Vector3d t = Twc->block<3, 1>(0, 3);
                   ofs_track_pose << num_frame << " "
@@ -128,10 +194,47 @@ void mono_tracking(const std::shared_ptr<stella_vslam::system>& slam,
                                  << std::endl;
               }
 
-              reloc_total++;
+              if (is_reloc)
+                reloc_total++;
               // stat reloc succ frame
               if (is_reloc && slam->get_track_state() == stella_vslam::tracker_state_t::Tracking)
                   reloc_succ++;
+
+              // record current frame and candidate keyframes, then combine them
+              if (is_reloc && !map_image_file.empty() && !reloc_candidate_file.empty() && slam->get_track_state() == stella_vslam::tracker_state_t::Tracking) {
+                  std::vector<std::shared_ptr<stella_vslam::data::keyframe>> candidate_keyframes = slam->get_tracker()->get_relocalizer().get_candidate_keyframes();
+                  std::cout << "candidate_keyframes.size = " << candidate_keyframes.size() << std::endl;
+
+#if 0
+                  std::shared_ptr<stella_vslam::data::keyframe> success_keyfrm = slam->get_tracker()->get_relocalizer().get_success_keyframe();
+                  int frame_count = round(success_keyfrm->timestamp_ * slam->get_camera()->fps_);
+                  std::string candidate_image_path = map_image_file + "/" + std::to_string(frame_count) + ".jpg";
+                  cv::Mat candidate_image = cv::imread(candidate_image_path);
+#if 0
+                  cv::imwrite("/home/xiongchao/视频/image3/source-" + std::to_string(num_frame) + ".jpg", frame);
+                  cv::imwrite("/home/xiongchao/视频/image4/query-" + std::to_string(frame_count) + ".jpg", candidate_image);
+#endif
+                  cv::Mat combine_image = save_match_info(success_keyfrm, candidate_image, slam->get_tracker()->curr_frm_, frame, slam->get_camera()->rows_);
+                  std::string combine_image_name = reloc_candidate_file + "/" + std::to_string(num_frame) + "-" + std::to_string(frame_count) + ".jpg";
+                  cv::imwrite(combine_image_name, combine_image);
+#endif
+
+#if 0
+                  for (auto &candidate_keyframe: candidate_keyframes) {
+                      int frame_count = round(candidate_keyframe->timestamp_ * slam->get_camera()->fps_);
+                      std::string candidate_image_path = map_image_file + "/" + std::to_string(frame_count) + ".jpg";
+                      cv::Mat candidate_image = cv::imread(candidate_image_path);
+#if 0
+                      cv::imwrite("/home/xiongchao/视频/image1/source-" + std::to_string(num_frame) + ".jpg", frame);
+                      cv::imwrite("/home/xiongchao/视频/image2/query-" + std::to_string(frame_count) + ".jpg", candidate_image);
+#endif
+
+                      cv::Mat combine_image = save_match_info(candidate_keyframe, candidate_image, slam->get_tracker()->curr_frm_, frame, slam->get_camera()->rows_);
+                      std::string combine_image_name = reloc_candidate_file + "/" + std::to_string(num_frame) + "-" + std::to_string(frame_count) + ".jpg";
+                      cv::imwrite(combine_image_name, combine_image);
+                  }
+#endif
+              }
           }
 
           const auto tp_2 = std::chrono::steady_clock::now();
@@ -143,6 +246,7 @@ void mono_tracking(const std::shared_ptr<stella_vslam::system>& slam,
 
           // wait until the timestamp of the next frame
           if (!no_sleep) {
+              // 经过测试，绝大部分时候都是负数
               const auto wait_time = 1.0 / slam->get_camera()->fps_ - track_time;
               if (0.0 < wait_time) {
                   std::this_thread::sleep_for(std::chrono::microseconds(static_cast<unsigned int>(wait_time * 1e6)));
@@ -216,7 +320,8 @@ void mono_tracking(const std::shared_ptr<stella_vslam::system>& slam,
     std::cout << "mean tracking time: " << total_track_time / track_times.size() << "[s]" << std::endl;
 
     // stat reloc result
-    std::cout << "reloc stat: reloc_total = " << reloc_total << ", reloc_succ = " << reloc_succ << ", succ_ratio = " << double(reloc_succ) / reloc_total << std::endl;
+    if (is_reloc && reloc_total > 0)
+        std::cout << "reloc stat: reloc_total = " << reloc_total << ", reloc_succ = " << reloc_succ << ", succ_ratio = " << double(reloc_succ) / reloc_total << std::endl;
 }
 
 int main(int argc, char* argv[]) {
@@ -243,9 +348,12 @@ int main(int argc, char* argv[]) {
     auto disable_mapping = op.add<popl::Switch>("", "disable-mapping", "disable mapping");
     auto start_timestamp = op.add<popl::Value<double>>("t", "start-timestamp", "timestamp of the start of the video capture");
     auto start_frame = op.add<popl::Value<unsigned int>>("", "start-frame", "interval of frame skip", 0);
+    auto end_frame = op.add<popl::Value<unsigned int>>("", "end-frame", "interval of frame skip", 0);
     auto is_reloc = op.add<popl::Switch>("", "is-reloc", "every frame exec reloc");
     auto track_pose_file = op.add<popl::Value<std::string>>("", "track-pose-file", "store reloc result", "");
     auto map_pose_file = op.add<popl::Value<std::string>>("", "map-pose-file", "store keyframe pose in map", "");
+    auto map_image_file = op.add<popl::Value<std::string>>("", "map-image-file", "search candidate keyframe in video when reloc", "");
+    auto reloc_candidate_file = op.add<popl::Value<std::string>>("", "reloc-candidate-file", "store current frame and candidate keyframe when reloc", "");
     try {
         op.parse(argc, argv);
     }
@@ -285,7 +393,7 @@ int main(int argc, char* argv[]) {
         cfg = std::make_shared<stella_vslam::config>(config_file_path->value());
     }
     catch (const std::exception& e) {
-        std::cerr << e.what() << std::endl;
+        std::cerr << "error: " << e.what() << std::endl;
         return EXIT_FAILURE;
     }
 
@@ -309,8 +417,10 @@ int main(int argc, char* argv[]) {
         timestamp = start_timestamp->value();
     }
 
+
     // build a slam system
     auto slam = std::make_shared<stella_vslam::system>(cfg, vocab_file_path->value());
+
     bool need_initialize = true;
     if (map_db_path_in->is_set()) {
         need_initialize = false;
@@ -326,6 +436,7 @@ int main(int argc, char* argv[]) {
             slam->load_map_database(path);
         }
     }
+
     // is_stopped_keyframe_insertion_在这个函数中被设置，因此，只要有加载地图，就不会在生成新的关键帧了
     slam->startup(need_initialize);
     if (disable_mapping->is_set()) {
@@ -347,9 +458,12 @@ int main(int argc, char* argv[]) {
                       map_db_path_out->value(),
                       timestamp,
                       start_frame->value(),
+                      end_frame->value(),
                       is_reloc->is_set(),
                       track_pose_file->value(),
-                      map_pose_file->value());
+                      map_pose_file->value(),
+                      map_image_file->value(),
+                      reloc_candidate_file->value());
     }
     else {
         throw std::runtime_error("Invalid setup type: " + slam->get_camera()->get_setup_type_string());

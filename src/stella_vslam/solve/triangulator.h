@@ -56,6 +56,7 @@ Vec3_t triangulator::triangulate(const cv::Point2d& pt_1, const cv::Point2d& pt_
     return v.block<3, 1>(0, 0) / v(3);
 }
 
+// 对两个相机系下的尺度进行建模，然后计算两个坐标，然后取平均
 Vec3_t triangulator::triangulate(const Vec3_t& bearing_1, const Vec3_t& bearing_2, const Mat33_t& rot_21, const Vec3_t& trans_21) {
     const Vec3_t trans_12 = -rot_21.transpose() * trans_21;
     const Vec3_t bearing_2_in_1 = rot_21.transpose() * bearing_2;
@@ -74,6 +75,7 @@ Vec3_t triangulator::triangulate(const Vec3_t& bearing_1, const Vec3_t& bearing_
     return (pt_1 + pt_2) / 2.0;
 }
 
+// DLT三角化
 Vec3_t triangulator::triangulate(const Vec3_t& bearing_1, const Vec3_t& bearing_2, const Mat44_t& cam_pose_1, const Mat44_t& cam_pose_2) {
     Mat44_t A;
     A.row(0) = bearing_1(0) * cam_pose_1.row(2) - bearing_1(2) * cam_pose_1.row(0);

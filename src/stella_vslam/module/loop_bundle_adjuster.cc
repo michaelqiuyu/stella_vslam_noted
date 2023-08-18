@@ -43,7 +43,8 @@ void loop_bundle_adjuster::optimize(const std::shared_ptr<data::keyframe>& curr_
     eigen_alloc_unord_map<unsigned int, Vec3_t> lm_to_pos_w_after_global_BA;
     eigen_alloc_unord_map<unsigned int, Mat44_t> keyfrm_to_pose_cw_after_global_BA;
     const auto global_BA = optimize::global_bundle_adjuster(num_iter_, false);
-    bool ok = global_BA.optimize(curr_keyfrm->graph_node_->get_keyframes_from_root(),
+    // 全局BA优化
+    bool ok = global_BA.optimize(curr_keyfrm->graph_node_->get_keyframes_from_root(),  // 从根节点开始获取所有的关键帧
                                  optimized_keyfrm_ids, optimized_landmark_ids,
                                  lm_to_pos_w_after_global_BA,
                                  keyfrm_to_pose_cw_after_global_BA, &abort_loop_BA_);

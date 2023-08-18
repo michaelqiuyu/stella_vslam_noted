@@ -1,6 +1,7 @@
 #ifndef STELLA_VSLAM_DATA_FRAME_H
 #define STELLA_VSLAM_DATA_FRAME_H
 
+#include "stella_vslam/test_macro.h"
 #include "stella_vslam/type.h"
 #include "stella_vslam/camera/base.h"
 #include "stella_vslam/feature/orb_params.h"
@@ -211,6 +212,25 @@ private:
     Mat33_t rot_wc_;
     //! translation: camera -> world
     Vec3_t trans_wc_;
+
+
+// by xiongchao
+public:
+    void set_img(cv::Mat img);
+    cv::Mat get_img() const;
+
+    void set_img_gray(cv::Mat img_gray);
+    cv::Mat get_img_gray() const;
+
+    void set_keypts(std::vector<cv::KeyPoint> &keypts);
+    std::vector<cv::KeyPoint> get_keypts() const;
+
+private:
+    cv::Mat img_;
+    cv::Mat img_gray_;
+
+    std::vector<cv::KeyPoint> keypts_;
+
 };
 
 } // namespace data

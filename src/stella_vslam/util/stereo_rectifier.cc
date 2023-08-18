@@ -5,6 +5,7 @@
 
 #include <spdlog/spdlog.h>
 #include <opencv2/imgproc.hpp>
+#include <iostream>
 
 namespace stella_vslam {
 namespace util {

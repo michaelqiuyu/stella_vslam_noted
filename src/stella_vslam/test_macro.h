@@ -1,0 +1,15 @@
+#ifndef STELLA_VSLAM_TEST_MACRO_H
+#define STELLA_VSLAM_TEST_MACRO_H
+
+// by xiongchao
+#define USE_IMG
+#define USE_IMG_GRAY
+
+#define TEST_RELOC
+#define USE_KEYPTS
+
+#define SAVE_KEYFRAME_IMAGE
+
+//#define PRINT_OPTIMIZATION_ERROR
+
+#endif //STELLA_VSLAM_TEST_MACRO_H

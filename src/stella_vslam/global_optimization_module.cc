@@ -53,6 +53,7 @@ bool global_optimization_module::loop_detector_is_enabled() const {
     return loop_detector_->is_enabled();
 }
 
+// 外部输入的强制的回环信息
 bool global_optimization_module::request_loop_closure(unsigned int keyfrm1_id, unsigned int keyfrm2_id) {
     std::lock_guard<std::mutex> lock(mtx_loop_closure_request_);
     if (loop_closure_is_requested_) {
@@ -80,6 +81,7 @@ void global_optimization_module::finish_loop_closure_request() {
     loop_closure_is_requested_ = false;
 }
 
+// 强制闭环，由外部传入的信息引起
 bool global_optimization_module::loop_closure(const loop_closure_request& request) {
     {
         std::lock_guard<std::mutex> lock(data::map_database::mtx_database_);
@@ -130,7 +132,7 @@ void global_optimization_module::run() {
         }
 
         // check if loop closure is requested
-        if (loop_closure_is_requested()) {
+        if (loop_closure_is_requested()) {  // 外部强制回环
             loop_closure(get_loop_closure_request());
         }
 
@@ -399,6 +401,7 @@ void global_optimization_module::replace_duplicated_landmarks(const std::vector<
     {
         std::lock_guard<std::mutex> lock(data::map_database::mtx_database_);
 
+        // 这里curr_match_lms_observed_in_cand实际上是前面构建的匹配，因此一定是两个关键帧都有对应的地图点，因此一定发生替换
         for (unsigned int idx = 0; idx < cur_keyfrm_->frm_obs_.num_keypts_; ++idx) {
             auto curr_match_lm_in_cand = curr_match_lms_observed_in_cand.at(idx);
             if (!curr_match_lm_in_cand) {
@@ -439,7 +442,7 @@ void global_optimization_module::replace_duplicated_landmarks(const std::vector<
     }
 
     // resolve duplications of landmarks between the current keyframe and the candidates of the loop candidate
-    auto curr_match_lms_observed_in_cand_covis = loop_detector_->current_matched_landmarks_observed_in_candidate_covisibilities();
+    auto curr_match_lms_observed_in_cand_covis = loop_detector_->current_matched_landmarks_observed_in_candidate_covisibilities();  // 闭环关键帧的共视关键帧的地图点
     match::fuse fuse_matcher(0.8);
     for (const auto& t : Sim3s_nw_after_correction) {
         auto neighbor = t.first;

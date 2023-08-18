@@ -48,12 +48,15 @@ public:
             throw;
         }
 
+        std::cout << "7" << std::endl;
+
         assert(camera != nullptr);
         if (camera->setup_type_ == camera::setup_type_t::Stereo || camera->setup_type_ == camera::setup_type_t::RGBD) {
             if (camera->model_type_ == camera::model_type_t::Equirectangular) {
                 throw std::runtime_error("Not implemented: Stereo or RGBD of equirectangular camera model");
             }
         }
+        std::cout << "8" << std::endl;
         return camera;
     }
 };

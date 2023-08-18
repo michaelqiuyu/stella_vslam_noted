@@ -144,5 +144,31 @@ Vec3_t frame::triangulate_stereo(const unsigned int idx) const {
     return data::triangulate_stereo(camera_, rot_wc_, trans_wc_, frm_obs_, idx);
 }
 
+
+// by xiongchao
+void frame::set_img(cv::Mat img) {
+    img_ = img;
+}
+
+cv::Mat frame::get_img() const {
+    return img_;
+}
+
+void frame::set_img_gray(cv::Mat img_gray) {
+    img_gray_ = img_gray;
+}
+
+cv::Mat frame::get_img_gray() const {
+    return img_gray_;
+}
+
+void frame::set_keypts(std::vector<cv::KeyPoint> &keypts) {
+    keypts_ = keypts;
+}
+
+std::vector<cv::KeyPoint> frame::get_keypts() const {
+    return keypts_;
+}
+
 } // namespace data
 } // namespace stella_vslam

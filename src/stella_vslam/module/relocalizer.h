@@ -1,6 +1,7 @@
 #ifndef STELLA_VSLAM_MODULE_RELOCALIZER_H
 #define STELLA_VSLAM_MODULE_RELOCALIZER_H
 
+#include "stella_vslam/test_macro.h"
 #include "stella_vslam/match/bow_tree.h"
 #include "stella_vslam/match/projection.h"
 #include "stella_vslam/match/robust.h"
@@ -82,6 +83,16 @@ private:
 
     //! Use fixed random seed for RANSAC if true
     const bool use_fixed_seed_;
+
+
+// by xiongchao
+private:
+    std::vector<std::shared_ptr<data::keyframe>> candidate_keyframes_;
+    std::shared_ptr<data::keyframe> success_keyfrm_;
+
+public:
+    std::vector<std::shared_ptr<data::keyframe>> get_candidate_keyframes();
+    std::shared_ptr<data::keyframe> get_success_keyframe();
 };
 
 } // namespace module

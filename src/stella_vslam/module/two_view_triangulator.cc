@@ -35,7 +35,7 @@ bool two_view_triangulator::triangulate(const unsigned idx_1, const unsigned int
     // compute the stereo parallax if the keypoint is observed as stereo
     const float depth_1 = keyfrm_1_->frm_obs_.depths_.empty() ? -1.0f : keyfrm_1_->frm_obs_.depths_.at(idx_1);
     const auto cos_stereo_parallax_1 = is_stereo_1
-                                           ? std::cos(2.0 * atan2(camera_1_->true_baseline_ / 2.0, depth_1))
+                                           ? std::cos(2.0 * atan2(camera_1_->true_baseline_ / 2.0, depth_1))  // 双目时候的夹角，根据stereo很容易得到
                                            : 2.0;
     const float depth_2 = keyfrm_2_->frm_obs_.depths_.empty() ? -1.0f : keyfrm_2_->frm_obs_.depths_.at(idx_2);
     const auto cos_stereo_parallax_2 = is_stereo_2
@@ -47,14 +47,16 @@ bool two_view_triangulator::triangulate(const unsigned idx_1, const unsigned int
     // threshold of minimum angle of the two rays
     const bool triangulate_with_two_cameras =
         // check if the sufficient parallax is provided
-        ((!is_stereo_1 && !is_stereo_2) && 0.0 < cos_rays_parallax && cos_rays_parallax < cos_rays_parallax_thr_)
+        ((!is_stereo_1 && !is_stereo_2) && 0.0 < cos_rays_parallax && cos_rays_parallax < cos_rays_parallax_thr_)  // 两条射线的夹角，如果太小的话三角化会不准确
         // check if the parallax between the two cameras is larger than the stereo parallax
         || ((is_stereo_1 || is_stereo_2) && 0.0 < cos_rays_parallax && cos_rays_parallax < cos_stereo_parallax);
 
     // triangulate
     if (triangulate_with_two_cameras) {
+        // 注意：这里的三角化算法与初始化的三角化算法不一样，这样做的原因是什么？
         pos_w = solve::triangulator::triangulate(ray_c_1, ray_c_2, cam_pose_1w_, cam_pose_2w_);
     }
+    // 双目的时候，使用夹角大的重建点
     else if (is_stereo_1 && cos_stereo_parallax_1 < cos_stereo_parallax_2) {
         pos_w = keyfrm_1_->triangulate_stereo(idx_1);
     }
@@ -82,7 +84,7 @@ bool two_view_triangulator::triangulate(const unsigned idx_1, const unsigned int
     // reject the point if the real scale factor and the predicted one are much different
     if (!check_scale_factors(pos_w,
                              keyfrm_1_->orb_params_->scale_factors_.at(keypt_1.octave),
-                             keyfrm_2_->orb_params_->scale_factors_.at(keypt_2.octave))) {
+                             keyfrm_2_->orb_params_->scale_factors_.at(keypt_2.octave))) {  // 距离越远，尺度越大
         return false;
     }
 

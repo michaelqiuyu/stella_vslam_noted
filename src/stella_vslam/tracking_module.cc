@@ -40,6 +40,7 @@ tracking_module::~tracking_module() {
 }
 
 void tracking_module::set_mapping_module(mapping_module* mapper) {
+    // 这里track和keyframe_inserter中的mapper都是同一个指针，因此在生成关键帧后，是在keyframe_inserter中插入的这个新的关键帧
     mapper_ = mapper;
     keyfrm_inserter_.set_mapping_module(mapper);
 }
@@ -219,6 +220,7 @@ bool tracking_module::track(bool relocalization_is_needed) {
         SPDLOG_TRACE("tracking_module: update_local_map (curr_frm_={})", curr_frm_.id_);
         update_local_map();
         SPDLOG_TRACE("tracking_module: optimize_current_frame_with_local_map (curr_frm_={})", curr_frm_.id_);
+        // num_tracked_lms: 局部建图跟踪得到的地图点的数量；num_reliable_lms：跟踪的地图点中观测的数量在min_num_obs_thr之上的地图点的数量
         succeeded = optimize_current_frame_with_local_map(num_tracked_lms, num_reliable_lms, min_num_obs_thr);
     }
 
@@ -283,7 +285,7 @@ bool tracking_module::track_current_frame() {
         if (!curr_frm_.bow_is_available()) {
             curr_frm_.compute_bow(bow_vocab_);
         }
-        succeeded = frame_tracker_.bow_match_based_track(curr_frm_, last_frm_, curr_frm_.ref_keyfrm_);
+        succeeded = frame_tracker_.bow_match_based_track(curr_frm_, last_frm_, curr_frm_.ref_keyfrm_);  // 当前帧的参考关键帧是上一帧的参考关键帧
     }
     if (!succeeded) {
         succeeded = frame_tracker_.robust_match_based_track(curr_frm_, last_frm_, curr_frm_.ref_keyfrm_);
@@ -358,6 +360,7 @@ void tracking_module::replace_landmarks_in_last_frm(nondeterministic::unordered_
 
         if (replaced_lms.count(lm)) {
             auto replaced_lm = replaced_lms[lm];
+            // 如果已经有这个地图点了，那就先删除，然后在add（对应的idx就不同了）
             if (last_frm_.has_landmark(replaced_lm)) {
                 last_frm_.erase_landmark(replaced_lm);
             }
@@ -422,7 +425,7 @@ bool tracking_module::optimize_current_frame_with_local_map(unsigned int& num_tr
     constexpr unsigned int num_tracked_lms_thr = 20;
 
     // if recently relocalized, use the more strict threshold
-    if (curr_frm_.timestamp_ < last_reloc_frm_timestamp_ + 1.0 && num_tracked_lms < 2 * num_tracked_lms_thr) {
+    if (curr_frm_.timestamp_ < last_reloc_frm_timestamp_ + 1.0 && num_tracked_lms < 2 * num_tracked_lms_thr) {  // 最近才重定位，又马上跟踪效果不好了
         spdlog::debug("local map tracking failed: {} matches < {}", num_tracked_lms, 2 * num_tracked_lms_thr);
         return false;
     }
@@ -480,10 +483,10 @@ void tracking_module::search_local_landmarks() {
 
         // this landmark cannot be reprojected
         // because already observed in the current frame
-        curr_landmark_ids.insert(lm->id_);
+        curr_landmark_ids.insert(lm->id_);  // 记录当前帧看到的这些地图点，在后面的投影匹配中，不会在对这些点进行投影
 
         // this landmark is observable from the current frame
-        lm->increase_num_observable();
+        lm->increase_num_observable();  // 这里仅仅增加了这个地图点的观测的数量，但是并没有增加观测的关键帧，因为这一帧还不是关键帧
     }
 
     bool found_proj_candidate = false;
@@ -529,8 +532,8 @@ void tracking_module::search_local_landmarks() {
     projection_matcher.match_frame_and_landmarks(curr_frm_, local_landmarks_, lm_to_reproj, lm_to_x_right, lm_to_scale, margin);
 }
 
-bool tracking_module::new_keyframe_is_needed(unsigned int num_tracked_lms,
-                                             unsigned int num_reliable_lms,
+bool tracking_module::new_keyframe_is_needed(unsigned int num_tracked_lms,  // 跟踪的点的数量
+                                             unsigned int num_reliable_lms,  // 跟踪的很好的点的数量
                                              const unsigned int min_num_obs_thr) const {
     // cannnot insert the new keyframe in a second after relocalization
     if (curr_frm_.timestamp_ < last_reloc_frm_timestamp_ + 1.0) {
@@ -631,6 +634,10 @@ void tracking_module::set_track_state(const tracker_state_t &state) {
 
 tracker_state_t tracking_module::get_track_state() {
     return tracking_state_;
+}
+
+module::relocalizer& tracking_module::get_relocalizer() {
+    return relocalizer_;
 }
 
 } // namespace stella_vslam

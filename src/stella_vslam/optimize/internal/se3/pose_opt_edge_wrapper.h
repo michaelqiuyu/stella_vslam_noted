@@ -55,6 +55,7 @@ inline pose_opt_edge_wrapper::pose_opt_edge_wrapper(const camera::base* camera, 
                                                     const unsigned int idx, const float obs_x, const float obs_y, const float obs_x_right,
                                                     const float inv_sigma_sq, const float sqrt_chi_sq)
     : camera_(camera), idx_(idx), is_monocular_(obs_x_right < 0) {
+    // 由于使用的是去畸变的特征点，因此对于透视相机和鱼眼相机实际上代码是一抹一样的
     // 拘束条件を設定
     switch (camera_->model_type_) {
         case camera::model_type_t::Perspective: {

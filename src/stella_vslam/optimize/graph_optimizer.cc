@@ -94,7 +94,7 @@ void graph_optimizer::optimize(const std::shared_ptr<data::keyframe>& loop_keyfr
         }
 
         // Fix the loop keyframe or root keyframe
-        if (*keyfrm == *loop_keyfrm || keyfrm->graph_node_->is_spanning_root()) {
+        if (*keyfrm == *loop_keyfrm || keyfrm->graph_node_->is_spanning_root()) {  // 与ORB_SLAM2不同的是，在哪里并不固定第一帧；ORB_SLAM3的逻辑比较复杂
             keyfrm_vtx->setFixed(true);
         }
 

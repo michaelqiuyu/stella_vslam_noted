@@ -21,6 +21,8 @@ unsigned int robust::match_for_triangulation(const std::shared_ptr<data::keyfram
     const Mat33_t rot_2w = keyfrm_2->get_rot_cw();
     const Vec3_t trans_2w = keyfrm_2->get_trans_cw();
     Vec3_t epiplane_in_keyfrm_2;
+    // 计算相机1的光心在相机2下的相机坐标（bearing vector），也就是极线的一个端点
+    // 通过三角测量的原理可以知道，越接近图像边缘，其经过E的映射后越有可能进行这个端点
     const bool valid_epiplane = keyfrm_2->camera_->reproject_to_bearing(rot_2w, trans_2w, cam_center_1, epiplane_in_keyfrm_2);
 
     // Acquire the 3D point information of the keframes
@@ -79,6 +81,7 @@ unsigned int robust::match_for_triangulation(const std::shared_ptr<data::keyfram
                         continue;
                     }
 
+                    // 与ORB_SLAM2/3不同的是，这里并没有使用直方图方向一致性检验，而是直接使用一个阈值来筛选，而不是根据角度的分布获取峰值
                     if (check_orientation_ && std::abs(util::angle::diff(keypt_1.angle, keyfrm_2->frm_obs_.undist_keypts_.at(idx_2).angle)) > 30.0) {
                         continue;
                     }
@@ -99,12 +102,18 @@ unsigned int robust::match_for_triangulation(const std::shared_ptr<data::keyfram
 
                     if (valid_epiplane && !is_stereo_keypt_1 && !is_stereo_keypt_2) {
                         // Do not use any keypoints near the epipole if both are not stereo keypoints
+
+                        /**
+                         * 在ORB_SLAM2/3中使用的是将后一个相机的光心投影到前一个相机，然后比较两个点在像素坐标下的距离
+                         * 这里是在相机系下计算夹角，如果夹角很小，说明地图点在两个相机下的投影都在图像的边缘
+                         * 这个可以从三角测量得到
+                         */
                         const auto cos_dist = epiplane_in_keyfrm_2.dot(bearing_2);
                         // The threshold of the minimum angle formed by the epipole and the bearing vector is 3.0 degree
                         constexpr double cos_dist_thr = 0.99862953475;
 
                         // Do not allow to match if the formed angle is narrower that the threshold value
-                        if (cos_dist_thr < cos_dist) {
+                        if (cos_dist_thr < cos_dist) {  // 小于3度，三角化的话，误差会比较大
                             continue;
                         }
                     }
@@ -337,6 +346,17 @@ bool robust::check_epipolar_constraint(const Vec3_t& bearing_1, const Vec3_t& be
                                        const Mat33_t& E_12, const float bearing_1_scale_factor) const {
     // Normal vector of the epipolar plane on keyframe 1
     const Vec3_t epiplane_in_1 = E_12 * bearing_2;
+
+    /**
+     * 这里使用的对极约束与ORB_SLAM2/3中并不一样，在ORB_SLAM2/3中使用的是F矩阵，因此是在像素坐标系做相关处理
+     * 在像素坐标系下，我们可以认为像素误差的方差为1，因此可以利用距离这个一维变量根据1维的卡方分布构建否定域，否定域的边界值即为阈值
+     *
+     * 这里的操作是在相机系下进行，因为此时距离的方差是未知的，因此如果还像F一样使用点到之间的距离，那么阈值将不可得
+     * 在CubemapSLAM中基于相机系单位球面坐标对方差进行了详细的推导，可以将其原理应用到此处
+     *
+     * 这里实际上没有使用复杂的模型，而是根据两个向量的内积（完全正确时为0）等于0，转换此关系为两个向量的夹角应该接近pi/2，这里的阈值就很主观了，使用的是0.2，这个值不像操作像素坐标时候一样，有合适的数学理论支撑
+     * 这个可以将其改进为在相机系单位球面坐标下建模
+     */
 
     // Acquire the angle formed by the normal vector and the bearing
     const auto cos_residual = epiplane_in_1.dot(bearing_1) / epiplane_in_1.norm();

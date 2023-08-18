@@ -28,6 +28,7 @@ bool local_map_updater::acquire_local_map() {
     return local_keyfrms_was_found && local_lms_was_found;
 }
 
+// 通过地图点的共视关系来查找当前帧附近的关键帧
 bool local_map_updater::find_local_keyframes() {
     const auto keyfrm_to_num_shared_lms = count_num_shared_lms();
     if (keyfrm_to_num_shared_lms.empty()) {

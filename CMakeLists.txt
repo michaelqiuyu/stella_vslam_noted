@@ -21,14 +21,16 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
+set(CMAKE_BUILD_TYPE "Debug")
+
 option(BUILD_SHARED_LIBS "Build stella_vslam as a shared library" ON)
 
 # ----- Build selection -----
 
-set(USE_PANGOLIN_VIEWER OFF CACHE BOOL "Enable Pangolin Viewer")
-set(INSTALL_PANGOLIN_VIEWER OFF CACHE BOOL "Install PangolinViewer library")
-set(USE_SOCKET_PUBLISHER OFF CACHE BOOL "Enable Socket Publisher")
-set(INSTALL_SOCKET_PUBLISHER OFF CACHE BOOL "Install SocketPublisher library")
+#set(USE_PANGOLIN_VIEWER OFF CACHE BOOL "Enable Pangolin Viewer")
+#set(INSTALL_PANGOLIN_VIEWER OFF CACHE BOOL "Install PangolinViewer library")
+#set(USE_SOCKET_PUBLISHER OFF CACHE BOOL "Enable Socket Publisher")
+#set(INSTALL_SOCKET_PUBLISHER OFF CACHE BOOL "Install SocketPublisher library")
 set(BUILD_EXAMPLES OFF CACHE BOOL "Build examples")
 set(BUILD_TESTS OFF CACHE BOOL "Build tests")
 set(BOW_FRAMEWORK "FBoW" CACHE STRING "DBoW2 or FBoW")
@@ -36,51 +38,51 @@ set_property(CACHE BOW_FRAMEWORK PROPERTY STRINGS "DBoW2" "FBoW")
 
 # ----- Set options for debugging -----
 
-set(USE_CCACHE ON CACHE BOOL "Use ccache to accelerate build")
-find_program(CCACHE_EXE ccache)
-if(USE_CCACHE AND CCACHE_EXE AND NOT MSVC)
-    set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CCACHE_EXE}")
-    set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK "${CCACHE_EXE}")
-    message(STATUS "ccache: Enabled")
-else()
-    set(USE_CCACHE OFF)
-    message(STATUS "ccache: Disabled")
-endif()
-
-set(USE_SANITIZER OFF CACHE BOOL "Enable Address/Memory sanitizer (set env as ASAN_OPTIONS=detect_leaks=1)")
-if(USE_SANITIZER AND NOT MSVC)
-    add_compile_options(-fno-omit-frame-pointer -fsanitize=address)
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
-    set(CMAKE_STATIC_LINKER_FLAGS "${CMAKE_STATIC_LINKER_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
-    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
-    message(STATUS "Address/Memory sanitizer: ENABLED")
-else()
-    message(STATUS "Address/Memory sanitizer: DISABLED")
-endif()
-
-# ----- Set compiler options -----
-
-# Note: add_compile_options() accepts only "simple" generator-expressions :-(
-if(MSVC)
-    # C4251: DLL export, C4244: floating->integer, C4305: double->float, C4267: size_t->any, C4127: constant condition
-    add_compile_options(/W4 $<$<CONFIG:Debug>:/MTd>;$<$<CONFIG:Release>:/MT> /source-charset:utf-8 /execution-charset:utf-8 /wd4251 /wd4244 /wd4305 /wd4267 /wd4127 /bigobj)
-    add_compile_options("$<$<CONFIG:Debug>:/Zo>;$<$<CONFIG:Release>:/O2>;$<$<CONFIG:None>:/O2>")
-    add_link_options(/NODEFAULTLIB:library)
-else()
-    add_compile_options(-Wall -Wextra)
-    add_compile_options(
-        "$<$<CONFIG:Debug>:-Og>"
-        "$<$<CONFIG:Release>:-O3>"
-        "$<$<CONFIG:None>:-O3>")
-endif()
-
-set(BUILD_WITH_MARCH_NATIVE OFF CACHE BOOL "Enable architecture-aware optimization")
-if(BUILD_WITH_MARCH_NATIVE AND NOT MSVC)
-    add_compile_options(-mtune=native -march=native)
-    message(STATUS "Architecture-aware optimization: ENABLED")
-else()
-    message(STATUS "Architecture-aware optimization: DISABLED")
-endif()
+#set(USE_CCACHE ON CACHE BOOL "Use ccache to accelerate build")
+#find_program(CCACHE_EXE ccache)
+#if(USE_CCACHE AND CCACHE_EXE AND NOT MSVC)
+#    set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CCACHE_EXE}")
+#    set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK "${CCACHE_EXE}")
+#    message(STATUS "ccache: Enabled")
+#else()
+#    set(USE_CCACHE OFF)
+#    message(STATUS "ccache: Disabled")
+#endif()
+#
+#set(USE_SANITIZER OFF CACHE BOOL "Enable Address/Memory sanitizer (set env as ASAN_OPTIONS=detect_leaks=1)")
+#if(USE_SANITIZER AND NOT MSVC)
+#    add_compile_options(-fno-omit-frame-pointer -fsanitize=address)
+#    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
+#    set(CMAKE_STATIC_LINKER_FLAGS "${CMAKE_STATIC_LINKER_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
+#    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
+#    message(STATUS "Address/Memory sanitizer: ENABLED")
+#else()
+#    message(STATUS "Address/Memory sanitizer: DISABLED")
+#endif()
+#
+## ----- Set compiler options -----
+#
+## Note: add_compile_options() accepts only "simple" generator-expressions :-(
+#if(MSVC)
+#    # C4251: DLL export, C4244: floating->integer, C4305: double->float, C4267: size_t->any, C4127: constant condition
+#    add_compile_options(/W4 $<$<CONFIG:Debug>:/MTd>;$<$<CONFIG:Release>:/MT> /source-charset:utf-8 /execution-charset:utf-8 /wd4251 /wd4244 /wd4305 /wd4267 /wd4127 /bigobj)
+#    add_compile_options("$<$<CONFIG:Debug>:/Zo>;$<$<CONFIG:Release>:/O2>;$<$<CONFIG:None>:/O2>")
+#    add_link_options(/NODEFAULTLIB:library)
+#else()
+#    add_compile_options(-Wall -Wextra)
+#    add_compile_options(
+#        "$<$<CONFIG:Debug>:-Og>"
+#        "$<$<CONFIG:Release>:-O3>"
+#        "$<$<CONFIG:None>:-O3>")
+#endif()
+#
+#set(BUILD_WITH_MARCH_NATIVE OFF CACHE BOOL "Enable architecture-aware optimization")
+#if(BUILD_WITH_MARCH_NATIVE AND NOT MSVC)
+#    add_compile_options(-mtune=native -march=native)
+#    message(STATUS "Architecture-aware optimization: ENABLED")
+#else()
+#    message(STATUS "Architecture-aware optimization: DISABLED")
+#endif()
 
 # ----- Find dependencies -----
 
@@ -168,9 +170,11 @@ set(INCLUDES_DESTINATION include)
 
 add_subdirectory(src)
 
-if(BUILD_EXAMPLES)
-    add_subdirectory(example)
-endif()
+#if(BUILD_EXAMPLES)
+#    add_subdirectory(example)
+#endif()
+
+add_subdirectory(example)
 
 if(BUILD_TESTS)
     enable_testing()

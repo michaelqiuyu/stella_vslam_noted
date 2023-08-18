@@ -61,7 +61,7 @@ void local_bundle_adjuster::optimize(data::map_database* map_db,
     }
 
     // Correct landmarks seen in local keyframes
-    std::unordered_map<unsigned int, std::shared_ptr<data::landmark>> local_lms;
+    std::unordered_map<unsigned int, std::shared_ptr<data::landmark>> local_lms;  // 本关键帧及共视关键帧的所有的地图点
 
     for (const auto& local_keyfrm : local_keyfrms) {
         const auto landmarks = local_keyfrm.second->get_landmarks();
@@ -102,7 +102,7 @@ void local_bundle_adjuster::optimize(data::map_database* map_db,
     }
 
     // Fixed keyframes: keyframes which observe local landmarks but which are NOT in local keyframes
-    std::unordered_map<unsigned int, std::shared_ptr<data::keyframe>> fixed_keyfrms;
+    std::unordered_map<unsigned int, std::shared_ptr<data::keyframe>> fixed_keyfrms;  // 地图点的观测并且不在共视关机键中的关键帧
 
     for (const auto& local_lm : local_lms) {
         const auto observations = local_lm.second->get_observations();
@@ -130,9 +130,11 @@ void local_bundle_adjuster::optimize(data::map_database* map_db,
     }
 
     if (use_additional_keyframes_for_monocular_) {
+        // 下面的注释有问题？应该是最多只有两个关键帧吧
         // Ensure that there are always at least two fixed keyframes
         auto additional_keyfrms_size = 2 - fixed_keyfrms.size();
         if (!has_scale && fixed_keyfrms.size() < 2 && local_keyfrms.size() > additional_keyfrms_size) {
+            // 将共视图的前几帧关键帧固定住
             for (unsigned int i = 0; i < additional_keyfrms_size; ++i) {
                 auto itr = local_keyfrms.begin();
                 auto keyfrm_id = itr->first;
@@ -249,7 +251,7 @@ void local_bundle_adjuster::optimize(data::map_database* map_db,
     std::vector<reproj_edge_wrapper> mkr_reproj_edge_wraps;
     mkr_reproj_edge_wraps.reserve(all_keyfrms.size() * local_mkrs.size());
 
-    for (auto& id_local_mkr_pair : local_mkrs) {
+    for (auto& id_local_mkr_pair : local_mkrs) {  // 路标相当于单目残差
         auto mkr = id_local_mkr_pair.second;
         if (!mkr) {
             continue;
@@ -302,6 +304,7 @@ void local_bundle_adjuster::optimize(data::map_database* map_db,
         run_robust_BA = false;
     }
 
+    // 与ORB_SLAM2/3不同，这里还会将坏边删除，再次优化
     if (run_robust_BA) {
         for (auto& reproj_edge_wrap : reproj_edge_wraps) {
             auto edge = reproj_edge_wrap.edge_;
@@ -322,7 +325,7 @@ void local_bundle_adjuster::optimize(data::map_database* map_db,
                 }
             }
 
-            edge->setRobustKernel(nullptr);
+            edge->setRobustKernel(nullptr);  // 后面的优化不在设置鲁棒核函数了，因为已经没有大残差的边了
         }
 
         optimizer.initializeOptimization();
@@ -361,6 +364,7 @@ void local_bundle_adjuster::optimize(data::map_database* map_db,
     {
         std::lock_guard<std::mutex> lock(data::map_database::mtx_database_);
 
+        // 删除不好的2D-3D匹配，也就是删除地图点与关键帧的连接
         for (const auto& outlier_obs : outlier_observations) {
             const auto& keyfrm = outlier_obs.first;
             const auto& lm = outlier_obs.second;
@@ -372,6 +376,7 @@ void local_bundle_adjuster::optimize(data::map_database* map_db,
             }
         }
 
+        // 更新关键帧的位姿
         for (const auto& id_local_keyfrm_pair : local_keyfrms) {
             const auto& local_keyfrm = id_local_keyfrm_pair.second;
 
@@ -379,6 +384,7 @@ void local_bundle_adjuster::optimize(data::map_database* map_db,
             local_keyfrm->set_pose_cw(keyfrm_vtx->estimate());
         }
 
+        // 更新地图点的坐标
         for (const auto& id_local_lm_pair : local_lms) {
             const auto& local_lm = id_local_lm_pair.second;
             if (local_lm->will_be_erased()) {

@@ -134,8 +134,8 @@ public:
 
     //! Feed a stereo frame to SLAM system
     //! (Note: Left and Right images must be stereo-rectified)
-    data::frame create_stereo_frame(const cv::Mat& left_img, const cv::Mat& right_img, const double timestamp, const cv::Mat& mask = cv::Mat{});
-    std::shared_ptr<Mat44_t> feed_stereo_frame(const cv::Mat& left_img, const cv::Mat& right_img, const double timestamp, const cv::Mat& mask = cv::Mat{});
+    data::frame create_stereo_frame(const cv::Mat& left_img, const cv::Mat& right_img, const double timestamp, const cv::Mat& left_mask = cv::Mat{}, const cv::Mat& right_mask = cv::Mat{});
+    std::shared_ptr<Mat44_t> feed_stereo_frame(const cv::Mat& left_img, const cv::Mat& right_img, const double timestamp, const cv::Mat& left_mask = cv::Mat{}, const cv::Mat& right_mask = cv::Mat{});
 
     //! Feed an RGBD frame to SLAM system
     //! (Note: RGB and Depth images must be aligned)
@@ -281,6 +281,8 @@ public:
     void set_track_state(tracker_state_t state);
 
     tracker_state_t get_track_state();
+
+    tracking_module* get_tracker();
 
     //! Save the keyFrame pose to txt file
     void save_pose_txt(const std::string &path) const;

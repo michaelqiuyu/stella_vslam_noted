@@ -138,9 +138,9 @@ std::vector<std::shared_ptr<keyframe>> map_database::get_close_keyframes_2d(cons
         Mat33_t N = id_keyframe.second->get_pose_wc().block<3, 3>(0, 0);
         Vec3_t Nt = id_keyframe.second->get_pose_wc().block<3, 1>(0, 3);
         // Angle between two cameras related to given pose and selected keyframe
-        const double cos_angle = ((M * N.transpose()).trace() - 1) / 2;
+        const double cos_angle = ((M * N.transpose()).trace() - 1) / 2;  // axis angle
         // Distance between given pose and selected keyframe
-        const double dist = ((Nt - Nt.dot(normal_vector) * normal_vector)
+        const double dist = ((Nt - Nt.dot(normal_vector) * normal_vector)  // Nt垂直于normal_vector方向的投影
                              - (Mt - Mt.dot(normal_vector) * normal_vector))
                                 .norm();
         if (dist < distance_threshold && cos_angle > cos_angle_threshold) {
@@ -169,7 +169,7 @@ std::vector<std::shared_ptr<keyframe>> map_database::get_close_keyframes(const M
         Mat33_t N = id_keyframe.second->get_pose_wc().block<3, 3>(0, 0);
         Vec3_t Nt = id_keyframe.second->get_pose_wc().block<3, 1>(0, 3);
         // Angle between two cameras related to given pose and selected keyframe
-        const double cos_angle = ((M * N.transpose()).trace() - 1) / 2;
+        const double cos_angle = ((M * N.transpose()).trace() - 1) / 2;  // axis angle
         // Distance between given pose and selected keyframe
         const double dist = (Nt - Mt).norm();
         if (dist < distance_threshold && cos_angle > cos_angle_threshold) {

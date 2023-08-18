@@ -5,6 +5,7 @@
 #include "stella_vslam/optimize/terminate_action.h"
 #include "stella_vslam/optimize/internal/se3/pose_opt_edge_wrapper.h"
 #include "stella_vslam/util/converter.h"
+#include "stella_vslam/test_macro.h"
 
 #include <vector>
 #include <mutex>
@@ -159,6 +160,13 @@ unsigned int pose_optimizer::optimize(const Mat44_t& cam_pose_cw, const data::fr
             break;
         }
     }
+
+#ifdef PRINT_OPTIMIZATION_ERROR
+    for (auto& pose_opt_edge_wrap : pose_opt_edge_wraps) {
+        auto edge = pose_opt_edge_wrap.edge_;
+        std::cout << "error: " << edge->chi2() << std::endl;
+    }
+#endif
 
     delete terminateAction;
 

@@ -25,13 +25,16 @@ endif()
 
 # ----- Show dialog -----
 
-if(USE_PANGOLIN_VIEWER)
-    message(STATUS "Viewer for examples: PangolinViewer")
-elseif(USE_SOCKET_PUBLISHER)
-    message(STATUS "Viewer for examples: SocketPublisher")
-else()
-    message(STATUS "Viewer for examples: None")
-endif()
+#if(USE_PANGOLIN_VIEWER)
+#    message(STATUS "Viewer for examples: PangolinViewer")
+#elseif(USE_SOCKET_PUBLISHER)
+#    message(STATUS "Viewer for examples: SocketPublisher")
+#else()
+#    message(STATUS "Viewer for examples: None")
+#endif()
+
+message(STATUS "Viewer for examples: PangolinViewer")
+
 
 # ----- Build example executables -----
 
@@ -42,6 +45,9 @@ list(APPEND EXECUTABLE_TARGETS run_camera_slam)
 
 add_executable(run_image_slam run_image_slam.cc util/image_util.cc)
 list(APPEND EXECUTABLE_TARGETS run_image_slam)
+
+add_executable(help_test help_test.cc util/image_util.cc)
+list(APPEND EXECUTABLE_TARGETS help_test)
 
 add_executable(run_video_slam run_video_slam.cc)
 list(APPEND EXECUTABLE_TARGETS run_video_slam)
@@ -61,6 +67,9 @@ list(APPEND EXECUTABLE_TARGETS run_loop_closure)
 add_executable(run_insta360 run_insta360.cc)
 list(APPEND EXECUTABLE_TARGETS run_insta360)
 
+add_executable(run_17s_stereo_slam run_17s_stereo_slam.cc util/17s_util.cc)
+list(APPEND EXECUTABLE_TARGETS run_17s_stereo_slam)
+
 foreach(EXECUTABLE_TARGET IN LISTS EXECUTABLE_TARGETS)
     # Set output directory for executables
     set_target_properties(${EXECUTABLE_TARGET} PROPERTIES
@@ -71,17 +80,22 @@ foreach(EXECUTABLE_TARGET IN LISTS EXECUTABLE_TARGETS)
                           RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO "${PROJECT_BINARY_DIR}")
 
     # PangolinViewer is used on a priority basis
-    if(USE_PANGOLIN_VIEWER)
-        # Set macro flag
-        target_compile_definitions(${EXECUTABLE_TARGET} PRIVATE USE_PANGOLIN_VIEWER)
-        # Link viewer
-        target_link_libraries(${EXECUTABLE_TARGET} PRIVATE pangolin_viewer)
-    elseif(USE_SOCKET_PUBLISHER)
-        # Set macro flag
-        target_compile_definitions(${EXECUTABLE_TARGET} PRIVATE USE_SOCKET_PUBLISHER)
-        # Link viewer
-        target_link_libraries(${EXECUTABLE_TARGET} PRIVATE socket_publisher)
-    endif()
+#    if(USE_PANGOLIN_VIEWER)
+#        # Set macro flag
+#        target_compile_definitions(${EXECUTABLE_TARGET} PRIVATE USE_PANGOLIN_VIEWER)
+#        # Link viewer
+#        target_link_libraries(${EXECUTABLE_TARGET} PRIVATE pangolin_viewer)
+#    elseif(USE_SOCKET_PUBLISHER)
+#        # Set macro flag
+#        target_compile_definitions(${EXECUTABLE_TARGET} PRIVATE USE_SOCKET_PUBLISHER)
+#        # Link viewer
+#        target_link_libraries(${EXECUTABLE_TARGET} PRIVATE socket_publisher)
+#    endif()
+
+    # Set macro flag
+    target_compile_definitions(${EXECUTABLE_TARGET} PRIVATE USE_PANGOLIN_VIEWER)
+    # Link viewer
+    target_link_libraries(${EXECUTABLE_TARGET} PRIVATE pangolin_viewer)
 
     # Setup stack trace logger
     if(USE_STACK_TRACE_LOGGER)

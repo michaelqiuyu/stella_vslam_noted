@@ -34,7 +34,8 @@ void orb_extractor::extract(const cv::_InputArray& in_image, const cv::_InputArr
     // build image pyramid
     compute_image_pyramid(image);
 
-    // mask initialization
+    // mask initialization：equirectangular
+    // mask_rects_ is a vector, rect_mask_ is a cv::Mat
     if (!mask_is_initialized_ && !mask_rects_.empty()) {
         create_rectangle_mask(image.cols, image.rows);
         mask_is_initialized_ = true;
@@ -99,6 +100,11 @@ void orb_extractor::extract(const cv::_InputArray& in_image, const cv::_InputArr
     }
 }
 
+/**
+ * camera model: equirectangular
+ *
+ * The bottom and top parts of the area are usually masked, of course, also need to be set according to the actual situation
+ */
 void orb_extractor::create_rectangle_mask(const unsigned int cols, const unsigned int rows) {
     if (rect_mask_.empty()) {
         rect_mask_ = cv::Mat(rows, cols, CV_8UC1, cv::Scalar(255));

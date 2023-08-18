@@ -1,6 +1,7 @@
 #ifndef STELLA_VSLAM_DATA_KEYFRAME_H
 #define STELLA_VSLAM_DATA_KEYFRAME_H
 
+#include "stella_vslam/test_macro.h"
 #include "stella_vslam/type.h"
 #include "stella_vslam/camera/base.h"
 #include "stella_vslam/feature/orb_params.h"
@@ -320,6 +321,31 @@ private:
 
     //! flag which indicates this keyframe will be erased
     std::atomic<bool> will_be_erased_{false};
+
+
+// by xiongchao
+public:
+    void set_img(cv::Mat img);
+    cv::Mat get_img();
+
+    void set_img_gray(cv::Mat img_gray);
+    cv::Mat get_img_gray();
+
+    void set_keypts(std::vector<cv::KeyPoint> keypts);
+    std::vector<cv::KeyPoint> get_keypts();
+
+    void set_matched_landmarks(std::vector<std::shared_ptr<data::landmark>> matched_landmarks);
+    std::vector<std::shared_ptr<data::landmark>> get_matched_landmarks();
+
+private:
+    cv::Mat img_;
+    cv::Mat img_gray_;
+
+    std::vector<cv::KeyPoint> keypts_;
+
+    std::vector<std::shared_ptr<data::landmark>> matched_landmarks_;
+
+    int count = 1;
 };
 
 } // namespace data

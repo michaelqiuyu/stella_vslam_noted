@@ -58,7 +58,7 @@ void optimize_impl(g2o::SparseOptimizer& optimizer,
             continue;
         }
 
-        auto keyfrm_vtx = keyfrm_vtx_container.create_vertex(keyfrm, keyfrm->graph_node_->is_spanning_root());
+        auto keyfrm_vtx = keyfrm_vtx_container.create_vertex(keyfrm, keyfrm->graph_node_->is_spanning_root());  // 固定第一帧
         optimizer.addVertex(keyfrm_vtx);
     }
 
@@ -154,6 +154,7 @@ void optimize_impl(g2o::SparseOptimizer& optimizer,
                 const auto& undist_pt = mkr_2d.undist_corners_.at(corner_idx);
                 const float x_right = -1.0;
                 const float inv_sigma_sq = 1.0;
+                // 不可能是双目了
                 auto reproj_edge_wrap = reproj_edge_wrapper(keyfrm, keyfrm_vtx, nullptr, corner_vtx,
                                                             0, undist_pt.x, undist_pt.y, x_right,
                                                             inv_sigma_sq, 0.0, false);
@@ -232,6 +233,7 @@ void global_bundle_adjuster::optimize_for_initialization(const std::vector<std::
     }
 }
 
+// use in loop
 bool global_bundle_adjuster::optimize(const std::vector<std::shared_ptr<data::keyframe>>& keyfrms,
                                       std::unordered_set<unsigned int>& optimized_keyfrm_ids,
                                       std::unordered_set<unsigned int>& optimized_landmark_ids,

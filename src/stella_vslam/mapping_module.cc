@@ -248,6 +248,7 @@ void mapping_module::store_new_keyframe() {
     map_db_->add_keyframe(cur_keyfrm_);
 }
 
+// 原子操作，能够保证同一时间仅仅只有一个线程对同一资源进行调用，并且比互斥锁效率更高
 void mapping_module::create_new_landmarks(std::atomic<bool>& abort_create_new_landmarks) {
     // get the covisibilities of `cur_keyfrm_`
     // in order to triangulate landmarks between `cur_keyfrm_` and each of the covisibilities
@@ -275,15 +276,16 @@ void mapping_module::create_new_landmarks(std::atomic<bool>& abort_create_new_la
         const Vec3_t baseline_vec = ngh_cam_center - cur_cam_center;
         const auto baseline_dist = baseline_vec.norm();
 
+        // 平移太小，求解的地图点不稳定，这个可以通过三角化原理推导得知
         // if the scene scale is much smaller than the baseline, abort the triangulation
-        if (use_baseline_dist_thr_ratio_) {
+        if (use_baseline_dist_thr_ratio_) {  // 阈值0.02，利用中值判断
             const float median_depth_in_ngh = ngh_keyfrm->compute_median_depth(true);
             if (baseline_dist < baseline_dist_thr_ratio_ * median_depth_in_ngh) {
                 continue;
             }
         }
         else {
-            if (baseline_dist < baseline_dist_thr_) {
+            if (baseline_dist < baseline_dist_thr_) {  // 阈值1，直接判断
                 continue;
             }
         }
@@ -298,7 +300,7 @@ void mapping_module::create_new_landmarks(std::atomic<bool>& abort_create_new_la
 
         // vector of matches (idx in the current, idx in the neighbor)
         std::vector<std::pair<unsigned int, unsigned int>> matches;
-        robust_matcher.match_for_triangulation(cur_keyfrm_, ngh_keyfrm, E_ngh_to_cur, matches);
+        robust_matcher.match_for_triangulation(cur_keyfrm_, ngh_keyfrm, E_ngh_to_cur, matches);  // 词袋搜索：特征值的角度差值（使用的是固定值，而非方向的直方图一致性检验）、描述子的距离、距离极线端点的程度、对极几何的约束
 
         // triangulation
         triangulate_with_two_keyframes(cur_keyfrm_, ngh_keyfrm, matches);
@@ -376,7 +378,7 @@ void mapping_module::update_new_keyframe() {
     }
 
     // update the graph (Because fuse_landmark_duplication changes the landmark)
-    cur_keyfrm_->graph_node_->update_connections(map_db_->get_min_num_shared_lms());
+    cur_keyfrm_->graph_node_->update_connections(map_db_->get_min_num_shared_lms());  // 由于地图点有更新，因此共视关系需要更新
 }
 
 void mapping_module::fuse_landmark_duplication(const std::vector<std::shared_ptr<data::keyframe>>& fuse_tgt_keyfrms,
@@ -394,6 +396,7 @@ void mapping_module::fuse_landmark_duplication(const std::vector<std::shared_ptr
             std::unordered_map<unsigned int, std::shared_ptr<data::landmark>> new_connections;
             const Mat33_t rot_cw = fuse_tgt_keyfrm->get_rot_cw();
             const Vec3_t trans_cw = fuse_tgt_keyfrm->get_trans_cw();
+            // 投影获取匹配，如果共视关键帧有对应的地图点，那么就是重复；如果没有，那么就新建连接
             fuse_matcher.detect_duplication(fuse_tgt_keyfrm, rot_cw, trans_cw, cur_landmarks, 3.0, duplicated_lms_in_keyfrm, new_connections, true);
 
             // There is association between the 3D point and the keyframe
@@ -409,8 +412,8 @@ void mapping_module::fuse_landmark_duplication(const std::vector<std::shared_ptr
                 }
                 // Replace lm_in_keyfrm with lm_to_replace
                 if (lm_to_replace->id_ != lm_in_keyfrm->id_) {
-                    replaced_lms[lm_in_keyfrm] = lm_to_replace;
-                    lm_in_keyfrm->replace(lm_to_replace, map_db_);
+                    replaced_lms[lm_in_keyfrm] = lm_to_replace;  // 观测更多
+                    lm_in_keyfrm->replace(lm_to_replace, map_db_);  // 替换地图点
                     if (!lm_to_replace->has_representative_descriptor()) {
                         lm_to_replace->compute_descriptor();
                     }
@@ -423,7 +426,7 @@ void mapping_module::fuse_landmark_duplication(const std::vector<std::shared_ptr
             for (const auto& best_idx_lm : new_connections) {
                 const auto& best_idx = best_idx_lm.first;
                 auto lm = best_idx_lm.second;
-                while (replaced_lms.count(lm)) {
+                while (replaced_lms.count(lm)) {  // 找到不被替换的最优的地图点
                     lm = replaced_lms[lm];
                 }
                 lm->connect_to_keyframe(fuse_tgt_keyfrm, best_idx);
@@ -434,12 +437,15 @@ void mapping_module::fuse_landmark_duplication(const std::vector<std::shared_ptr
     }
 
     {
+        // 以下为反向操作，上面是将当前关键帧的地图点往共视关键帧投影，这里是将共视关键帧的地图点往当前关键帧投影
+
         // reproject the landmarks observed in each of the targets to each of the current frame, and acquire
         // - additional matches
         // - duplication of matches
         // then, add matches and solve duplication
         nondeterministic::unordered_set<std::shared_ptr<data::landmark>> candidate_landmarks_to_fuse;
 
+        // 以下获取共视关键帧的所有的非重复的地图点
         for (const auto& fuse_tgt_keyfrm : fuse_tgt_keyfrms) {
             const auto fuse_tgt_landmarks = fuse_tgt_keyfrm->get_landmarks();
 

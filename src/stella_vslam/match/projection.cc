@@ -428,6 +428,11 @@ unsigned int projection::match_keyframes_mutually(const std::shared_ptr<data::ke
     const Mat33_t rot_2w = keyfrm_2->get_rot_cw();
     const Vec3_t trans_2w = keyfrm_2->get_trans_cw();
 
+    /**
+     * ( sR    t)   逆变换    (R / s    -R.t * t / s)
+     * ( 0     1)            (0                   1)
+     */
+
     // Compute the similarity transformation between the keyframes 1 and 2
     const Mat33_t s_rot_12 = s_12 * rot_12;
     const Mat33_t s_rot_21 = (1.0 / s_12) * rot_12.transpose();

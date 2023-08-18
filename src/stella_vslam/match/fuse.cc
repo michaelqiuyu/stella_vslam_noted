@@ -8,6 +8,7 @@
 namespace stella_vslam {
 namespace match {
 
+// 将当前关键帧的地图点往其他关键帧投影，如果其他关键帧这个特征点有地图点，那就是重复；否则就将这个点添加到这个关键帧中
 template<typename T>
 unsigned int fuse::detect_duplication(const std::shared_ptr<data::keyframe>& keyfrm,
                                       const Mat33_t& rot_cw,
@@ -30,6 +31,7 @@ unsigned int fuse::detect_duplication(const std::shared_ptr<data::keyframe>& key
         if (lm->will_be_erased()) {
             continue;
         }
+        // lm的观测中是否有这个关键帧
         if (lm->is_observed_in_keyframe(keyfrm)) {
             continue;
         }
@@ -55,6 +57,7 @@ unsigned int fuse::detect_duplication(const std::shared_ptr<data::keyframe>& key
         const auto max_cam_to_lm_dist = margin_far * lm->get_max_valid_distance();
         const auto min_cam_to_lm_dist = margin_near * lm->get_min_valid_distance();
 
+        // 在这个相机下距离相机的距离是否在距离阈值内；这里与ORB_SLAM2/3不同的是还添加了margin_far这个缩放因子，使得区间变的更加大了
         if (cam_to_lm_dist < min_cam_to_lm_dist || max_cam_to_lm_dist < cam_to_lm_dist) {
             continue;
         }
@@ -63,7 +66,8 @@ unsigned int fuse::detect_duplication(const std::shared_ptr<data::keyframe>& key
         // and discard it if it is wider than the threshold value (60 degrees)
         const Vec3_t obs_mean_normal = lm->get_obs_mean_normal();
 
-        if (cam_to_lm_vec.dot(obs_mean_normal) < 0.5 * cam_to_lm_dist) {
+        // 夹角大于60度就不执行下面的操作了
+        if (cam_to_lm_vec.dot(obs_mean_normal) < 0.5 * cam_to_lm_dist) {  // cos(theta) = 0.5 → theta = 60
             continue;
         }
 
@@ -90,10 +94,11 @@ unsigned int fuse::detect_duplication(const std::shared_ptr<data::keyframe>& key
             const auto scale_level = static_cast<unsigned int>(undist_keypt.octave);
 
             // TODO: shoud determine the scale with 'keyfrm-> get_keypts_in_cell ()'
-            if (scale_level + 1 < pred_scale_level || pred_scale_level < scale_level) {
+            if (scale_level + 1 < pred_scale_level || pred_scale_level < scale_level) {  // scale_level只有等于pred_scale_level或者pred_scale_level - 1的时候才会往后面执行
                 continue;
             }
 
+            // 验证重投影误差，这里实际上是判断匹配的距离是否满足阈值
             if (do_reprojection_matching) {
                 if (!keyfrm->frm_obs_.stereo_x_right_.empty() && keyfrm->frm_obs_.stereo_x_right_.at(idx) >= 0) {
                     // Compute reprojection error with 3 degrees of freedom if a stereo match exists
@@ -157,6 +162,7 @@ unsigned int fuse::detect_duplication(const std::shared_ptr<data::keyframe>& key
     return num_fused;
 }
 
+// 模板的显示实例化
 template unsigned int fuse::detect_duplication(const std::shared_ptr<data::keyframe>&,
                                                const Mat33_t&,
                                                const Vec3_t&,

@@ -63,6 +63,7 @@ endif()
 add_library(${PROJECT_NAME}
             ${CMAKE_CURRENT_SOURCE_DIR}/config.h
             ${CMAKE_CURRENT_SOURCE_DIR}/type.h
+            ${CMAKE_CURRENT_SOURCE_DIR}/test_macro.h
             ${CMAKE_CURRENT_SOURCE_DIR}/system.h
             ${CMAKE_CURRENT_SOURCE_DIR}/tracking_module.h
             ${CMAKE_CURRENT_SOURCE_DIR}/mapping_module.h

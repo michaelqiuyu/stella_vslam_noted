@@ -167,7 +167,9 @@ void system::startup(const bool need_initialize) {
         tracker_->tracking_state_ = tracker_state_t::Lost;
     }
 
+    // 创建局部建图线程
     mapping_thread_ = std::unique_ptr<std::thread>(new std::thread(&stella_vslam::mapping_module::run, mapper_));
+    // 创建回环线程
     global_optimization_thread_ = std::unique_ptr<std::thread>(new std::thread(&stella_vslam::global_optimization_module::run, global_optimizer_));
 }
 
@@ -289,6 +291,7 @@ data::frame system::create_monocular_frame(const cv::Mat& img, const double time
 
     // Undistort keypoints
     camera_->undistort_keypoints(keypts_, frm_obs.undist_keypts_);
+    std::cout << "提取的特征点的数量为：" << keypts_.size() << std::endl;
 
     // Convert to bearing vector
     camera_->convert_keypoints_to_bearings(frm_obs.undist_keypts_, frm_obs.bearings_);
@@ -302,10 +305,22 @@ data::frame system::create_monocular_frame(const cv::Mat& img, const double time
         marker_detector_->detect(img_gray, markers_2d);
     }
 
-    return data::frame(timestamp, camera_, orb_params_, frm_obs, std::move(markers_2d));
+    data::frame curr_frame = data::frame(timestamp, camera_, orb_params_, frm_obs, std::move(markers_2d));
+#ifdef USE_IMG
+    curr_frame.set_img(img.clone());  // clone一份，不要直接传址
+#endif
+
+#ifdef USE_IMG_GRAY
+    curr_frame.set_img_gray(img_gray.clone());  // clone一份，不要直接传址
+#endif
+
+#ifdef USE_KEYPTS
+    curr_frame.set_keypts(keypts_);
+#endif
+    return curr_frame;
 }
 
-data::frame system::create_stereo_frame(const cv::Mat& left_img, const cv::Mat& right_img, const double timestamp, const cv::Mat& mask) {
+data::frame system::create_stereo_frame(const cv::Mat& left_img, const cv::Mat& right_img, const double timestamp, const cv::Mat& left_mask, const cv::Mat& right_mask) {
     // color conversion
     cv::Mat img_gray = left_img;
     cv::Mat right_img_gray = right_img;
@@ -320,11 +335,11 @@ data::frame system::create_stereo_frame(const cv::Mat& left_img, const cv::Mat& 
 
     // Extract ORB feature
     keypts_.clear();
-    std::thread thread_left([this, &frm_obs, &img_gray, &mask]() {
-        extractor_left_->extract(img_gray, mask, keypts_, frm_obs.descriptors_);
+    std::thread thread_left([this, &frm_obs, &img_gray, &left_mask]() {
+        extractor_left_->extract(img_gray, left_mask, keypts_, frm_obs.descriptors_);
     });
-    std::thread thread_right([this, &frm_obs, &right_img_gray, &mask, &keypts_right, &descriptors_right]() {
-        extractor_right_->extract(right_img_gray, mask, keypts_right, descriptors_right);
+    std::thread thread_right([this, &frm_obs, &right_img_gray, &right_mask, &keypts_right, &descriptors_right]() {
+        extractor_right_->extract(right_img_gray, right_mask, keypts_right, descriptors_right);
     });
     thread_left.join();
     thread_right.join();
@@ -424,13 +439,13 @@ std::shared_ptr<Mat44_t> system::feed_monocular_frame(const cv::Mat& img, const 
     return feed_frame(create_monocular_frame(img, timestamp, mask), img);
 }
 
-std::shared_ptr<Mat44_t> system::feed_stereo_frame(const cv::Mat& left_img, const cv::Mat& right_img, const double timestamp, const cv::Mat& mask) {
+std::shared_ptr<Mat44_t> system::feed_stereo_frame(const cv::Mat& left_img, const cv::Mat& right_img, const double timestamp, const cv::Mat& left_mask, const cv::Mat& right_mask) {
     assert(camera_->setup_type_ == camera::setup_type_t::Stereo);
     if (left_img.empty() || right_img.empty()) {
         spdlog::warn("preprocess: empty image");
         return nullptr;
     }
-    return feed_frame(create_stereo_frame(left_img, right_img, timestamp, mask), left_img);
+    return feed_frame(create_stereo_frame(left_img, right_img, timestamp, left_mask, right_mask), left_img);
 }
 
 std::shared_ptr<Mat44_t> system::feed_RGBD_frame(const cv::Mat& rgb_img, const cv::Mat& depthmap, const double timestamp, const cv::Mat& mask) {
@@ -579,6 +594,10 @@ void system::save_pose_txt(const std::string &path) const {
     spdlog::debug("save_map_txt: {}", path);
     map_database_io_->save_pose_txt(path, map_db_);
     resume_other_threads();
+}
+
+tracking_module* system::get_tracker() {
+    return tracker_;
 }
 
 } // namespace stella_vslam

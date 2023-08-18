@@ -42,6 +42,11 @@ bool relocalizer::relocalize(data::bow_database* bow_db, data::frame& curr_frm) 
         return false;
     }
 
+#ifdef TEST_RELOC
+    // Record the acquired candidate keyframes
+    candidate_keyframes_ = reloc_candidates;
+#endif
+
     return reloc_by_candidates(curr_frm, reloc_candidates);
 }
 
@@ -62,6 +67,9 @@ bool relocalizer::reloc_by_candidates(data::frame& curr_frm,
 
         bool ok = reloc_by_candidate(curr_frm, candidate_keyfrm, use_robust_matcher);
         if (ok) {
+#ifdef TEST_RELOC
+            success_keyfrm_ = candidate_keyfrm;
+#endif
             spdlog::info("relocalization succeeded (id={})", candidate_keyfrm->id_);
             // TODO: should set the reference keyframe of the current frame
             return true;
@@ -77,7 +85,11 @@ bool relocalizer::reloc_by_candidate(data::frame& curr_frm,
                                      bool use_robust_matcher) {
     std::vector<unsigned int> inlier_indices;
     std::vector<std::shared_ptr<data::landmark>> matched_landmarks;
+
     bool ok = relocalize_by_pnp_solver(curr_frm, candidate_keyfrm, use_robust_matcher, inlier_indices, matched_landmarks);
+#ifdef TEST_RELOC
+    candidate_keyfrm->set_matched_landmarks(matched_landmarks);
+#endif
     if (!ok) {
         return false;
     }
@@ -118,10 +130,21 @@ bool relocalizer::relocalize_by_pnp_solver(data::frame& curr_frm,
                                            bool use_robust_matcher,
                                            std::vector<unsigned int>& inlier_indices,
                                            std::vector<std::shared_ptr<data::landmark>>& matched_landmarks) const {
+#ifdef TEST_RELOC
+    std::cout << "relocalize_by_pnp_solver begin: " << std::endl;
+#endif
+    // robust: 使用BF直接暴力匹配
     const auto num_matches = use_robust_matcher ? robust_matcher_.match_frame_and_keyframe(curr_frm, candidate_keyfrm, matched_landmarks)
                                                 : bow_matcher_.match_frame_and_keyframe(candidate_keyfrm, curr_frm, matched_landmarks);
+#ifdef TEST_RELOC
+    std::cout << "词袋匹配或者暴力匹配的数量为：" << num_matches << std::endl;
+#endif
+
     // Discard the candidate if the number of 2D-3D matches is less than the threshold
     if (num_matches < min_num_bow_matches_) {
+#ifdef TEST_RELOC
+        std::cout << "reloc failure: num_matches = " << num_matches << ", min_num_bow_matches_ = " << min_num_bow_matches_ << std::endl;
+#endif
         spdlog::debug("Number of 2D-3D matches ({}) < threshold ({}). candidate keyframe id is {}", num_matches, min_num_bow_matches_, candidate_keyfrm->id_);
         return false;
     }
@@ -132,9 +155,11 @@ bool relocalizer::relocalize_by_pnp_solver(data::frame& curr_frm,
                                        matched_landmarks, curr_frm.orb_params_->scale_factors_);
 
     // 1. Estimate the camera pose using EPnP (+ RANSAC)
-
     pnp_solver->find_via_ransac(30);
     if (!pnp_solver->solution_is_valid()) {
+#ifdef TEST_RELOC
+        std::cout << "reloc failure: pnp_solver is not valid" << std::endl;
+#endif
         spdlog::debug("solution is not valid. candidate keyframe id is {}", candidate_keyfrm->id_);
         return false;
     }
@@ -150,6 +175,9 @@ bool relocalizer::relocalize_by_pnp_solver(data::frame& curr_frm,
 bool relocalizer::optimize_pose(data::frame& curr_frm,
                                 const std::shared_ptr<stella_vslam::data::keyframe>& candidate_keyfrm,
                                 std::vector<bool>& outlier_flags) const {
+#ifdef TEST_RELOC
+    std::cout << "optimize_pose begin: " << std::endl;
+#endif
     // Pose optimization
     g2o::SE3Quat optimized_pose;
     auto num_valid_obs = pose_optimizer_.optimize(curr_frm, optimized_pose, outlier_flags);
@@ -157,6 +185,10 @@ bool relocalizer::optimize_pose(data::frame& curr_frm,
 
     // Discard the candidate if the number of the inliers is less than the threshold
     if (num_valid_obs < min_num_bow_matches_ / 2) {
+#ifdef TEST_RELOC
+        std::cout << "reloc failure: num_valid_obs = " << num_valid_obs << ", min_num_bow_matches_ / 2 = " << min_num_bow_matches_ / 2 << std::endl;
+#endif
+
         spdlog::debug("Number of inliers ({}) < threshold ({}). candidate keyframe id is {}", num_valid_obs, min_num_bow_matches_ / 2, candidate_keyfrm->id_);
         return false;
     }
@@ -176,6 +208,9 @@ bool relocalizer::refine_pose(data::frame& curr_frm,
                               const std::shared_ptr<stella_vslam::data::keyframe>& candidate_keyfrm,
                               const std::set<std::shared_ptr<data::landmark>>& already_found_landmarks) const {
     // 3. Apply projection match to increase 2D-3D matches
+#ifdef TEST_RELOC
+    std::cout << "refine_pose begin: " << std::endl;
+#endif
 
     auto num_valid_obs = already_found_landmarks.size();
 
@@ -183,6 +218,9 @@ bool relocalizer::refine_pose(data::frame& curr_frm,
     auto num_found = proj_matcher_.match_frame_and_keyframe(curr_frm, candidate_keyfrm, already_found_landmarks, 10, 100);
     // Discard the candidate if the number of the inliers is less than the threshold
     if (num_valid_obs + num_found < min_num_valid_obs_) {
+#ifdef TEST_RELOC
+        std::cout << "reloc failure: num_valid_obs + num_found = " << num_valid_obs + num_found << ", min_num_valid_obs_ = " << min_num_valid_obs_ << std::endl;
+#endif
         spdlog::debug("Number of inliers ({}) < threshold ({}). candidate keyframe id is {}", num_valid_obs + num_found, min_num_valid_obs_, candidate_keyfrm->id_);
         return false;
     }
@@ -207,6 +245,9 @@ bool relocalizer::refine_pose(data::frame& curr_frm,
 
     // Discard if the number of the observations is less than the threshold
     if (num_valid_obs1 + num_additional < min_num_valid_obs_) {
+#ifdef TEST_RELOC
+        std::cout << "reloc failure: num_valid_obs1 + num_additional = " << num_valid_obs1 + num_additional << ", min_num_valid_obs_ = " << min_num_valid_obs_ << std::endl;
+#endif
         spdlog::debug("Number of observations ({}) < threshold ({}). candidate keyframe id is {}", num_valid_obs1 + num_additional, min_num_valid_obs_, candidate_keyfrm->id_);
         return false;
     }
@@ -220,6 +261,9 @@ bool relocalizer::refine_pose(data::frame& curr_frm,
 
     // Discard if falling below the threshold
     if (num_valid_obs2 < min_num_valid_obs_) {
+#ifdef TEST_RELOC
+        std::cout << "reloc failure: num_valid_obs2 = " << num_valid_obs2 << ", min_num_valid_obs_ = " << min_num_valid_obs_ << std::endl;
+#endif
         spdlog::debug("Number of observatoins ({}) < threshold ({}). candidate keyframe id is {}", num_valid_obs2, min_num_valid_obs_, candidate_keyfrm->id_);
         return false;
     }
@@ -237,12 +281,19 @@ bool relocalizer::refine_pose(data::frame& curr_frm,
 
 bool relocalizer::refine_pose_by_local_map(data::frame& curr_frm,
                                            const std::shared_ptr<stella_vslam::data::keyframe>& candidate_keyfrm) const {
+#ifdef TEST_RELOC
+    std::cout << "refine_pose_by_local_map begin: " << std::endl;
+#endif
     // Create local map
     constexpr unsigned int max_num_local_keyfrms = 10;
     auto local_map_updater = module::local_map_updater(curr_frm, max_num_local_keyfrms);
     if (!local_map_updater.acquire_local_map()) {
+#ifdef TEST_RELOC
+        std::cout << "reloc failure: local_map acquire local map" << std::endl;
+#endif
         return false;
     }
+    // 通过当前帧的地图点的观测获取局部关键帧，并获取局部关键帧的地图点，从而获得局部地图
     auto local_keyfrms = local_map_updater.get_local_keyframes();
     auto local_landmarks = local_map_updater.get_local_landmarks();
     auto nearest_covisibility = local_map_updater.get_nearest_covisibility();
@@ -359,6 +410,16 @@ std::unique_ptr<solve::pnp_solver> relocalizer::setup_pnp_solver(const std::vect
     }
     // Setup PnP solver
     return std::unique_ptr<solve::pnp_solver>(new solve::pnp_solver(valid_bearings, valid_keypts, valid_landmarks, scale_factors, use_fixed_seed_));
+}
+
+
+// by xiongchao
+std::vector<std::shared_ptr<data::keyframe>> relocalizer::get_candidate_keyframes() {
+    return candidate_keyframes_;
+}
+
+std::shared_ptr<data::keyframe> relocalizer::get_success_keyframe() {
+    return success_keyfrm_;
 }
 
 } // namespace module

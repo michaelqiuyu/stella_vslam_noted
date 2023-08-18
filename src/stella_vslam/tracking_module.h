@@ -177,9 +177,9 @@ protected:
     //! Insert the new keyframe derived from the current frame
     void insert_new_keyframe();
 
-    //! mapping module
+    //! mapping module → associate local_map in ORB_SLAM3
     mapping_module* mapper_ = nullptr;
-    //! global optimization module
+    //! global optimization module → associate loop in ORB_SLAM3
     global_optimization_module* global_optimizer_ = nullptr;
 
     //! map_database
@@ -282,6 +282,8 @@ public:
     void set_track_state(const tracker_state_t &state);
 
     tracker_state_t get_track_state();
+
+    module::relocalizer& get_relocalizer();
 };
 
 } // namespace stella_vslam
