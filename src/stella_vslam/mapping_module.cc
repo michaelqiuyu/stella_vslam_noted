@@ -175,6 +175,7 @@ void mapping_module::mapping_with_new_keyframe() {
 
     // store the new keyframe to the database
     store_new_keyframe();
+    std::cout << "mapping_module-create_new_keyframe" << std::endl;
 
     // remove invalid landmarks
     local_map_cleaner_->remove_invalid_landmarks(cur_keyfrm_->id_);

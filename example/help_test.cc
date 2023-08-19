@@ -206,7 +206,7 @@ int main(int argc, char* argv[]) {
     spdlog::set_level(spdlog::level::from_str(log_level));
 
     // load configuration
-    const std::string config_file_path = "/media/xiongchao/4BFEB161E3205D4B1/workspace/project/vslam/dataset/perspective/MH_01_EASY/EuRoC_mono.yaml";
+    const std::string config_file_path = "/home/xiongchao/studying/SLAM/VSLAM/vslam/dataset/perspective/EuRoC_mono.yaml";
     std::shared_ptr<stella_vslam::config> cfg;
     try {
         cfg = std::make_shared<stella_vslam::config>(config_file_path);
@@ -237,7 +237,7 @@ int main(int argc, char* argv[]) {
 //    }
 
     // build a slam system
-    const std::string vocab_file_path = "/home/xiongchao/workspace/leador/project/vslam/code/stella_vslam_noted/3rd/FBoW/orb_vocab.fbow";
+    const std::string vocab_file_path = "/home/xiongchao/studying/SLAM/OpenSourceOwner/SurroundCameraSLAM/code/SurroundCameraSLAM/3rd/FBoW/orb_vocab.fbow";
 
     auto slam = std::make_shared<stella_vslam::system>(cfg, vocab_file_path);
     bool need_initialize = true;
@@ -261,7 +261,7 @@ int main(int argc, char* argv[]) {
 //    }
 
     // run tracking
-    const std::string img_dir_path = "/media/xiongchao/4BFEB161E3205D4B1/workspace/project/vslam/dataset/perspective/MH_01_EASY/Cam0";
+    const std::string img_dir_path = "/home/xiongchao/studying/SLAM/VSLAM/vslam/dataset/perspective/image/Cam0";
     const auto mask_img_path = "";
     const int frame_skip = 1;
     const bool no_sleep = true;
